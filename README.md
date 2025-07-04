@@ -1,7 +1,6 @@
 # 🧹 LLM Output Scrub
 
-A macOS menu bar app that automatically scrubs smart/typographic characters from LLM output,
-replacing them with plain ASCII equivalents.
+A customizable macOS menu bar app that automatically scrubs smart/typographic characters from LLM output (or really any text) into plain ASCII, with configurable replacement rules for smart quotes, dashes, and other symbols.
 
 [![Python](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/macOS-10.12+-green.svg)](https://www.apple.com/macos/)
@@ -9,17 +8,31 @@ replacing them with plain ASCII equivalents.
 
 ## ✨ Features
 
-- 🔄 **Smart Quotes**: Replaces `"` `"` `'` `'` with straight quotes `"` `'`
-- ➖ **Dashes**: Converts em dashes `—` and en dashes `–` to hyphens `-`
-- ⚡ **Ellipsis**: Replaces `…` with three dots `...`
-- 🎯 **Symbols**: Converts typographic symbols to ASCII equivalents
-- 🌍 **Unicode**: Handles accented characters by removing diacritics
+- 📱 **Menu Bar**: Runs as a menu bar app
+- ⚙️ **Configurable**: All character replacements can be customized via JSON config (more detail below)
+  - 🔄 **Smart Quotes**: Replaces `"` `"` `'` `'` with straight quotes `"` `'`
+  - ➖ **Smart Dashes**: Converts em dashes `—` and en dashes `–` to hyphens `-` with context-aware logic
+  - ⚡ **Ellipsis**: Replaces `…` with three dots `...`
+  - 🎯 **Symbols**: Converts typographic symbols to ASCII equivalents
+  - 🌍 **Unicode**: Handles accented characters by removing diacritics
+  - 🔢 **Various Others**: Supports trademarks, fractions, mathematical symbols, currency, units, and more
 - 🔔 **Notifications**: Shows success/error notifications
-- 📱 **Menu Bar**: Runs as a clean menu bar app
 
 ## 🚀 Quick Start
 
-### Option 1: Automated Setup (Recommended)
+### Option 1: Build Standalone App (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/nisc/LLM-output-scrub.git
+cd LLM-output-scrub
+
+# Build and install the app
+make build
+make install
+```
+
+### Option 2: Automated Development Setup
 
 ```bash
 # Clone the repository
@@ -33,7 +46,7 @@ make setup
 make run
 ```
 
-### Option 2: Manual Setup
+### Option 3: Manual Development Setup
 
 ```bash
 # Clone the repository
@@ -51,22 +64,66 @@ pip install -e .[dev,build]
 python -m llm_output_scrub.llm_output_scrub
 ```
 
-### Option 3: Build Standalone App
-
-```bash
-# Build the app
-make build
-
-# Install to Applications
-make install
-```
-
 ## 📖 Usage
 
 1. **Copy LLM output** with smart quotes or typographic characters
 2. **Click the scrubber icon** 🧹 in your menu bar
 3. **Select "Scrub LLM Output"** from the menu
 4. **Paste** anywhere - now with plain ASCII characters!
+
+## ⚙️ Configuration
+
+The app uses a JSON configuration file located at `~/.llm_output_scrub/config.json` that allows you to customize all character replacements. The configuration includes:
+
+### Character Replacement Categories
+
+- **Smart Quotes**: `"` `"` `'` `'` → `"` `'`
+- **Dashes**: EN dashes `–` → `-` (simple replacement)
+- **Ellipsis**: `…` → `...`
+- **Angle Quotes**: `‹` `›` `«` `»` → `<` `>` `<<` `>>`
+- **Trademarks**: `™` `®` → `(TM)` `(R)`
+- **Mathematical**: `≤` `≥` `≠` `≈` `±` → `<=` `>=` `!=` `~` `+/-`
+- **Fractions**: `¼` `½` `¾` → `1/4` `1/2` `3/4`
+- **Footnotes**: `†` `‡` → `*` `**`
+- **Units**: `×` `÷` `‰` `‱` → `*` `/` `per thousand` `per ten thousand`
+- **Currency**: `€` `£` `¥` `¢` → `EUR` `GBP` `JPY` `cents`
+
+### Special EM Dash Handling
+
+EM dashes (`—`) use advanced context-aware replacement logic rather than simple character substitution:
+
+- **Ranges**: `1—10` → `1-10`
+- **Parenthetical**: `text—additional info—more text` → `text, additional info, more text`
+- **Sentence boundaries**: `He stopped—what was that?` → `He stopped... what was that?`
+- **Compound words**: `self—driving` → `self-driving`
+- **Lists**: `1—self—driving cars` → `1: self-driving cars`
+- **Dialogue**: `"Hello"—she said` → `"Hello", she said`
+
+### Configuration File Structure
+
+```json
+{
+  "general": {
+    "normalize_unicode": true,
+    "normalize_whitespace": true,
+    "remove_combining_chars": false,
+    "remove_non_ascii": false
+  },
+  "character_replacements": {
+    "smart_quotes": {
+      "enabled": true,
+      "replacements": {
+        "\u201c": "\"",
+        "\u201d": "\"",
+        "\u2018": "'",
+        "\u2019": "'"
+      }
+    }
+  }
+}
+```
+
+Each category can be enabled/disabled independently, and you can add custom replacements to any category.
 
 ## 🛠️ Development
 
@@ -96,6 +153,7 @@ LLM-output-scrub/
 │   ├── __init__.py
 │   ├── llm_output_scrub.py   # Main application
 │   ├── config_manager.py     # Configuration management
+│   ├── dash_nlp.py          # Context-aware dash replacement
 │   └── py.typed             # Type hints marker
 ├── tests/                    # Test suite
 ├── scripts/                  # Utility scripts
@@ -105,23 +163,6 @@ LLM-output-scrub/
 ├── main.py                  # App entry point
 └── Makefile                 # Build commands
 ```
-
-## 🔧 What Gets Replaced
-
-| Smart Character | ASCII Replacement |
-|----------------|-------------------|
-| `"` `"` | `"` |
-| `'` `'` | `'` |
-| `—` `–` | `-` |
-| `…` | `...` |
-| `•` `·` | *preserved* |
-| `™` | `(TM)` |
-| `®` | `(R)` |
-| `©` | *preserved* |
-| `€` `£` `¥` | `EUR` `GBP` `JPY` |
-| `≤` `≥` `≠` | `<=` `>=` `!=` |
-
-*See the source code for complete list of replacements*
 
 ## 🧪 Testing
 
