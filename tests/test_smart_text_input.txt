@@ -1,0 +1,45 @@
+Smart Quotes and Typography Example
+
+Here's a sample text with various "smart quotes" and 'curly apostrophes'
+that demonstrate the LLM Output Scrub's capabilities. You'll notice the
+difference between "straight quotes" and "curly quotes" throughout this
+document.
+
+The company's mission statement reads: "We strive for excellence in
+everything we do." However, some critics say it's "just marketing speak."
+The CEO responded: "We're committed to our values."
+
+Mathematical expressions often use special symbols: 2 × 3 = 6, 10 ÷ 2 = 5,
+and 5 ± 2 could be either 3 or 7. When comparing values, we use ≤ (less
+than or equal to) and ≥ (greater than or equal to). The temperature today
+is 25°C, which is approximately 77°F.
+
+Fractions are commonly written as ¼, ½, and ¾, though some prefer decimal
+notation. The square root of 16 is √16 = 4, and 5² = 25 while 2³ = 8.
+
+Currency symbols appear frequently: €50 for European purchases, £30 for
+British goods, ¥1000 for Japanese items, and ¢25 for small amounts. The
+company's revenue was $1,000,000 last year.
+
+Legal documents often contain trademark symbols: The product name™ is
+registered®, and the content is protected by copyright©. Section 1¶ of the
+agreement states that all parties must comply with the terms.
+
+Special punctuation marks include the em dash—which creates emphasis—and
+the en dash (–) for ranges like 2010–2020. Ellipsis… indicates omitted
+text, while bullet points • help organize information.
+
+Angle brackets are used for citations: ‹See reference› and «Important
+note». The mathematical symbol ≠ means "not equal to," and ≈ indicates
+"approximately equal to."
+
+The infinity symbol ∞ represents unlimited possibilities, while ± shows
+plus or minus values. The dagger † and double dagger ‡ are used for
+footnotes in academic texts.
+
+Per mille (‰) and permyriad (‱) symbols are used in statistics and finance
+to represent parts per thousand and parts per ten thousand respectively.
+
+This text demonstrates how the LLM Output Scrub will convert all these
+smart characters to their plain ASCII equivalents, making the text more
+compatible with various systems and applications.

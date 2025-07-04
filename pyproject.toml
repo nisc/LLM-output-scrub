@@ -1,0 +1,165 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel", "py2app>=0.28.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "LLM-output-scrub"
+version = "0.0.1"
+description = "A macOS menu bar app that scrubs smart/typographic characters from LLM output"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "nisc", email = "nisc@example.com"}
+]
+maintainers = [
+    {name = "nisc", email = "nisc@example.com"}
+]
+keywords = ["macos", "llm", "clipboard", "typography", "ascii", "menu-bar", "scrub"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Desktop Environment",
+    "Topic :: Text Processing",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.6"
+dependencies = [
+    "rumps>=0.4.0",
+    "pyperclip>=1.8.2",
+    "watchdog>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=22.0.0",
+    "flake8>=5.0.0",
+    "mypy>=1.0.0",
+]
+build = [
+    "py2app>=0.28.0",
+    "pillow>=9.0.0",
+    "jaraco.text",
+]
+
+[project.urls]
+Homepage = "https://github.com/nisc/LLM-output-scrub"
+Documentation = "https://github.com/nisc/LLM-output-scrub#readme"
+Repository = "https://github.com/nisc/LLM-output-scrub.git"
+"Bug Tracker" = "https://github.com/nisc/LLM-output-scrub/issues"
+"Release Notes" = "https://github.com/nisc/LLM-output-scrub/releases"
+
+[project.scripts]
+LLM-output-scrub = "llm_output_scrub.llm_output_scrub:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md", "py.typed"]
+
+[tool.black]
+line-length = 110
+target-version = ['py36']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "rumps.*",
+    "pyperclip.*",
+]
+ignore_missing_imports = true
+
+[tool.flake8]
+max-line-length = 110
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.isort]
+line_length = 110

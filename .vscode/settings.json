@@ -1,0 +1,10 @@
+{
+  "makefile.configureOnOpen": false,
+  "editor.rulers": [
+    110
+  ],
+  "python.formatting.provider": "black",
+  "python.linting.flake8Enabled": true,
+  "python.linting.enabled": true,
+  "python.defaultInterpreterPath": "./.venv/bin/python"
+}
