@@ -498,8 +498,8 @@ class TestLLMOutputScrub(unittest.TestCase):
             ("Version 2.1—3.0 includes new features", "Version 2.1-3.0 includes new features"),
             ("Date range 01/01—12/31 covers the year", "Date range 01/01 - 12/31 covers the year"),
             # 3. DIALOGUE AND ATTRIBUTION (should now replace EM dash)
-            ('"Hello"—John said', '"Hello" - John said'),
-            ("'How are you?'—she asked", "'How are you?' - she asked"),
+            ('"Hello"—John said', '"Hello", John said'),
+            ("'How are you?'—she asked", "'How are you?', she asked"),
             ("The answer—Mary replied", "The answer, Mary replied"),
             # 4. SENTENCE BOUNDARY AND INTERRUPTION
             ("I was going to—never mind", "I was going to... never mind"),
@@ -537,10 +537,10 @@ class TestLLMOutputScrub(unittest.TestCase):
         self.scrubber.config.set_category_enabled("dashes", True)
 
         test_cases = [
-            ('"Hello"—John said', '"Hello" - John said'),
-            ("'How are you?'—she asked", "'How are you?' - she asked"),
+            ('"Hello"—John said', '"Hello", John said'),
+            ("'How are you?'—she asked", "'How are you?', she asked"),
             ("The answer—Mary replied", "The answer, Mary replied"),
-            ("'I don't know'—he mumbled", "'I don't know' - he mumbled"),
+            ("'I don't know'—he mumbled", "'I don't know', he mumbled"),
         ]
 
         for input_text, expected in test_cases:

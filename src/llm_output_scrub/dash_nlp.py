@@ -25,7 +25,6 @@ def get_dash_replacement(text: str, position: int) -> str:
         return "... "
 
     # 4. PARENTHETICAL AND APPOSITIVE
-    # If previous dash was a range, treat this as parenthetical
     prev_dash = text.rfind("—", 0, position)
     if prev_dash != -1:
         before_prev = text[:prev_dash].strip()
@@ -39,18 +38,14 @@ def get_dash_replacement(text: str, position: int) -> str:
 
     # 5. LIST/ENUMERATION WITH COMPOUND WORDS (e.g., 1—self—driving cars)
     if before and before[-1].isdigit() and after and after[0].isalpha():
-        # First dash after a numeral gets colon and space
         return ": "
 
     # Handle compound words in numeral-list contexts (e.g., "1: self—driving cars")
     if before and after and before[-1].isalpha() and after[0].isalpha():
-        # Check if this is part of a numeral-list context by looking for previous colon
         prev_colon = text.rfind(":", 0, position)
         if prev_colon != -1:
-            # Check if there's a numeral before the colon
             before_colon = text[:prev_colon].strip()
             if before_colon and before_colon[-1].isdigit():
-                # This is a compound word in a numeral-list context
                 return "-"
 
     # If dash is between short words (compound), use '-' only if both sides are <4 chars and not parenthetical
@@ -65,9 +60,9 @@ def get_dash_replacement(text: str, position: int) -> str:
         if len(before.split()[-1]) > 1 and len(after.split()[0]) > 1:
             return ". "
 
-    # 7. DIALOGUE AND ATTRIBUTION
+    # 7. DIALOGUE AND ATTRIBUTION (quote followed by capitalized name)
     if _is_dialogue_context(before, after):
-        return " - "
+        return ", "
 
     # 8. EMPHASIS AND FOCUS
     if _is_emphasis_context(before, after):
@@ -130,10 +125,9 @@ def _is_range_context(before: str, after: str) -> bool:
 
 
 def _is_dialogue_context(before: str, after: str) -> bool:
-    dialogue_patterns = [r'["\']\s*$', r'^\s*["\']', r"^\s*[A-Z][a-z]+"]
-    for pattern in dialogue_patterns:
-        if re.search(pattern, before) or re.search(pattern, after):
-            return True
+    # Only match if before ends with quote and after starts with a capitalized name/attribution
+    if re.search(r'["\']\s*$', before) and re.match(r"^[A-Z][a-z]+", after):
+        return True
     return False
 
 
