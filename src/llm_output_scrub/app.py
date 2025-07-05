@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 LLM Output Scrub - macOS app that replaces smart/typographic characters with plain ASCII.
-Run directly: python3 llm_output_scrub.py
+Run directly: python3 app.py
 Or build with: python3 setup.py py2app
 """
 
@@ -16,23 +16,21 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from llm_output_scrub.config_manager import ScrubConfig  # pylint: disable=import-error
-from llm_output_scrub.dash_nlp import get_dash_replacement  # pylint: disable=import-error
+from llm_output_scrub.nlp import get_dash_replacement_nlp, get_nlp_processor  # pylint: disable=import-error
 
 # Check if we're on macOS
 if sys.platform != "darwin":
-    print("Error: This app is designed for macOS only.")
-    print("Please run this on a macOS system.")
-    sys.exit(1)
+    raise ImportError("This app is designed for macOS only.")
 
 try:
     import rumps  # pylint: disable=import-error
-except ImportError:
-    print("Error: rumps is required but not installed.")
-    print("Please install with: pip install -e .[macOS]")
-    sys.exit(1)
+except ImportError as exc:
+    raise ImportError(
+        "rumps is required but not installed. Please install with: pip install -e .[macOS]"
+    ) from exc
 
 # If you get import errors, run with:
-# python -m llm_output_scrub.llm_output_scrub
+# python -m llm_output_scrub.app
 # from the src/ directory, or set your PYTHONPATH accordingly.
 
 
@@ -53,10 +51,10 @@ class ConfigFileChangeHandler(FileSystemEventHandler):
 class LLMOutputScrub(rumps.App):
     """macOS menu bar app that scrubs smart/typographic characters from LLM output."""
 
-    def __init__(self) -> None:
-        super().__init__("🧹", quit_button="")
-        self.menu = ["Scrub LLM Output", "Configure", "About", "Quit"]
-        self.config = ScrubConfig()
+    def __init__(self, config_file: Optional[str] = None) -> None:
+        super().__init__("📝")
+        self.menu = ["Scrub Clipboard", "Configure", "NLP Stats", "About"]
+        self.config = ScrubConfig(config_file)
         self._observer: Optional[Any] = None
         self._start_config_watcher()
 
@@ -80,12 +78,7 @@ class LLMOutputScrub(rumps.App):
             title="LLM Output Scrub", subtitle="Config Reloaded", message="Configuration reloaded from file."
         )
 
-    @rumps.clicked("Quit")  # type: ignore[misc]
-    def quit_app(self, _: Any) -> None:
-        """Quit the application."""
-        rumps.quit_application()
-
-    @rumps.clicked("Scrub LLM Output")  # type: ignore[misc]
+    @rumps.clicked("Scrub Clipboard")  # type: ignore[misc]
     def scrub_llm_output(self, _: Any) -> None:
         """Scrub the clipboard content by replacing smart quotes and other typographic characters."""
         try:
@@ -134,12 +127,36 @@ class LLMOutputScrub(rumps.App):
         message += "\nEdit the JSON config file to customize replacements."
         rumps.alert(title="LLM Output Scrub Configuration", message=message)
 
+    @rumps.clicked("NLP Stats")  # type: ignore[misc]
+    def show_nlp_stats(self, _: Any) -> None:
+        """Show NLP processing statistics."""
+        try:
+            processor = get_nlp_processor()
+            processor.print_stats()
+
+            # Also show in notification
+            spacy_enhanced = processor.stats.get("spacy_enhanced", 0)
+            rule_based_only = processor.stats.get("rule_based_only", 0)
+            total_dashes = processor.stats.get("total_dashes", 0)
+
+            if total_dashes > 0:
+                spacy_pct = spacy_enhanced / total_dashes * 100
+                rumps.notification(
+                    title="NLP Stats",
+                    subtitle=f"Total: {total_dashes} dashes",
+                    message=f"spaCy Enhanced: {spacy_pct:.1f}% | Rule-based: {rule_based_only}",
+                )
+            else:
+                rumps.notification(title="NLP Stats", subtitle="No data", message="No dashes processed yet")
+        except (ValueError, KeyError, TypeError) as e:
+            rumps.notification(title="NLP Stats Error", subtitle="Error", message=str(e))
+
     @rumps.clicked("About")  # type: ignore[misc]
     def about(self, _: Any) -> None:
         """Show about dialog."""
         message = (
             "A simple macOS app that replaces smart/typographic characters with plain ASCII.\n\n"
-            "Click 'Scrub LLM Output' to process the current clipboard content.\n"
+            "Click 'Scrub Clipboard' to process the current clipboard content.\n"
             "Click 'Configure' to view current settings."
         )
         rumps.alert(title="LLM Output Scrub", message=message)
@@ -156,7 +173,7 @@ class LLMOutputScrub(rumps.App):
 
             # Special handling for EM dash if dashes category is enabled
             if char == "—" and self.config.is_category_enabled("dashes"):
-                replacement = get_dash_replacement(text, i)
+                replacement = get_dash_replacement_nlp(text, i)
                 scrubbed_text += replacement
             elif char in replacements:
                 scrubbed_text += replacements[char]
@@ -181,5 +198,10 @@ class LLMOutputScrub(rumps.App):
         return scrubbed_text
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Main entry point for the application."""
     LLMOutputScrub().run()
+
+
+if __name__ == "__main__":
+    main()

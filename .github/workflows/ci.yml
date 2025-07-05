@@ -34,9 +34,17 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .[dev,macOS]
 
+    - name: Download spaCy model
+      run: |
+        python -m spacy download en_core_web_sm
+
     - name: Run tests
       run: |
         python -m pytest tests/ -v --cov=src --cov-report=xml
+
+    - name: Test entry point script
+      run: |
+        PYTHONPATH=src python -c "from llm_output_scrub.app import main; print('Entry point script imported')"
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -61,6 +69,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .[build,macOS]
+
+    - name: Install spaCy English model
+      run: |
+        python -m spacy download en_core_web_sm
 
     - name: Build macOS app
       run: |
@@ -87,6 +99,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e .[dev]
+
+    - name: Download spaCy model
+      run: |
+        python -m spacy download en_core_web_sm
 
     - name: Run linters
       run: |

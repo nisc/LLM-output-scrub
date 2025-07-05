@@ -1,17 +1,19 @@
 # 🧹 LLM Output Scrub
 
-A customizable macOS menu bar app that automatically scrubs smart/typographic characters from LLM
-output (or really any text) into plain ASCII, with configurable replacement rules for smart quotes,
-dashes, and other symbols.
+A macOS menu bar app that scrubs smart/typographic characters from LLM output into plain ASCII.
+LLMs often ignore instructions to avoid smart quotes, dashes, and other symbols. This app
+uses spaCy NLP for context-aware processing and rule-based replacement.
 
-[![Python](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/macOS-10.12+-green.svg)](https://www.apple.com/macos/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-41%20passed-brightgreen.svg)](https://github.com/nisc/LLM-output-scrub)
 
 ## ✨ Features
 
 - 📱 **Menu Bar**: Runs as a menu bar app
-- ⚙️ **Configurable**: All character replacements can be customized via JSON config (more detail below)
+- 🧠 **NLP Processing**: Uses spaCy for context detection
+- ⚙️ **Configurable**: All character replacements can be customized via JSON config
   - 🔄 **Smart Quotes**: Replaces `"` `"` `'` `'` with straight quotes `"` `'`
   - ➖ **Smart Dashes**: Converts em dashes `—` and en dashes `–` to hyphens `-` with context-aware logic
   - ⚡ **Ellipsis**: Replaces `…` with three dots `...`
@@ -19,6 +21,7 @@ dashes, and other symbols.
   - 🌍 **Unicode**: Handles accented characters by removing diacritics
   - 🔢 **Various Others**: Supports trademarks, fractions, mathematical symbols, currency, units, and more
 - 🔔 **Notifications**: Shows success/error notifications
+- 📊 **NLP Stats**: Built-in performance monitoring and statistics
 
 ## 🚀 Quick Start
 
@@ -41,7 +44,7 @@ make install
 git clone https://github.com/nisc/LLM-output-scrub.git
 cd LLM-output-scrub
 
-# Set up environment (handles Python version compatibility)
+# Set up environment (handles Python version compatibility and spaCy model)
 make setup
 
 # Run the app
@@ -59,19 +62,43 @@ cd LLM-output-scrub
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install dependencies
+# Install dependencies (includes spaCy and English language model)
 pip install -e .[dev,build]
 
 # Run the app
-python -m llm_output_scrub.llm_output_scrub
+PYTHONPATH=src python src/run_app.py
 ```
 
 ## 📖 Usage
 
 1. **Copy LLM output** with smart quotes or typographic characters
-2. **Click the scrubber icon** 🧹 in your menu bar
-3. **Select "Scrub LLM Output"** from the menu
+2. **Click the scrubber icon** 📝 in your menu bar
+3. **Select "Scrub Clipboard"** from the menu
 4. **Paste** anywhere - now with plain ASCII characters!
+
+## 🧠 Advanced EM Dash Processing
+
+The app uses spaCy's natural language processing for context-aware EM dash replacement:
+
+### NLP-Based Approach
+
+The system uses spaCy's linguistic analysis instead of hardcoded wordlists:
+
+- **Part-of-Speech (POS) Analysis**: Identifies nouns, verbs, adjectives, etc.
+- **Dependency Parsing**: Understands grammatical relationships
+- **Sentence Structure Analysis**: Detects boundaries and context
+- **Token-level Processing**: Analyzes individual words and their roles
+
+### Context Detection
+
+The system detects and handles these EM dash contexts:
+
+- **Compound Words**: `self—driving` → `self-driving`
+- **Parenthetical/Appositive**: `text—additional info—more text` → `text, additional info, more text`
+- **Emphasis**: `The result—amazingly—was perfect` → `The result, amazingly, was perfect`
+- **Dialogue**: `"Hello"—she said` → `"Hello", she said`
+- **Conjunctions**: `A—or B` → `A, or B`
+- **Default Cases**: `simple—text` → `simple-text`
 
 ## ⚙️ Configuration
 
@@ -88,19 +115,8 @@ customize all character replacements. The configuration includes:
 - **Mathematical**: `≤` `≥` `≠` `≈` `±` → `<=` `>=` `!=` `~` `+/-`
 - **Fractions**: `¼` `½` `¾` → `1/4` `1/2` `3/4`
 - **Footnotes**: `†` `‡` → `*` `**`
-- **Units**: `×` `÷` `‰` `‱` → `*` `/` `per thousand` `per ten thousand`
+- **Units**: `×` `÷` `‰` `‱` → `*` `/` ` per thousand` ` per ten thousand`
 - **Currency**: `€` `£` `¥` `¢` → `EUR` `GBP` `JPY` `cents`
-
-### Special EM Dash Handling
-
-EM dashes (`—`) use advanced context-aware replacement logic rather than simple character substitution:
-
-- **Ranges**: `1—10` → `1-10`
-- **Parenthetical**: `text—additional info—more text` → `text, additional info, more text`
-- **Sentence boundaries**: `He stopped—what was that?` → `He stopped... what was that?`
-- **Compound words**: `self—driving` → `self-driving`
-- **Lists**: `1—self—driving cars` → `1: self-driving cars`
-- **Dialogue**: `"Hello"—she said` → `"Hello", she said`
 
 ### Configuration File Structure
 
@@ -131,7 +147,7 @@ Each category can be enabled/disabled independently, and you can add custom repl
 ## 🛠️ Development
 
 ```bash
-# Set up development environment
+# Set up development environment (includes spaCy model)
 make setup
 
 # Run tests
@@ -146,51 +162,50 @@ make clean
 
 ### Common Issues
 - **Virtual environment issues**: Run `make clean-venv && make setup` to recreate the environment.
-- **Import errors**: The app uses package-style imports. Run with
-  `PYTHONPATH=src python -m llm_output_scrub.llm_output_scrub` or use `make run`.
+- **spaCy model issues**: The setup automatically installs the English language model.
+- **Import errors**: The app uses package-style imports. Run with `make run` or manually with `PYTHONPATH=src python src/run_app.py`.
 
 ## 📁 Project Structure
 
 ```
 LLM-output-scrub/
 ├── src/llm_output_scrub/     # Source code
-│   ├── __init__.py
-│   ├── llm_output_scrub.py   # Main application
+│   ├── __init__.py           # Python init
+│   ├── app.py                # Main application
 │   ├── config_manager.py     # Configuration management
-│   ├── dash_nlp.py          # Context-aware dash replacement
-│   └── py.typed             # Type hints marker
+│   ├── nlp.py                # spaCy-based NLP processing
+│   └── py.typed              # Type hints marker
+├── src/run_app.py            # Entry point script
 ├── tests/                    # Test suite
-├── scripts/                  # Utility scripts
+│   ├── test_scrub.py         # Unit tests
+│   ├── integration-test.sh   # Integration test script
+│   ├── input.txt             # Test input data
+│   └── expected*.txt         # Expected test outputs
 ├── assets/                   # App assets (icons, etc.)
-├── pyproject.toml           # Project configuration & dependencies
-├── setup.py                 # py2app build configuration
-├── main.py                  # App entry point
-└── Makefile                 # Build commands
+├── pyproject.toml            # Project configuration & dependencies
+├── setup.py                  # py2app build configuration
+└── Makefile                  # Build commands
 ```
 
 ## 🧪 Testing
 
-The project includes both integration and unit testing:
-
-- **Integration Test:**
-  - Run with `make test`
-  - This is a full end-to-end test: it scrubs a real example file using the actual clipboard and
-    writes the output to files.
-  - It verifies the output automatically and checks both the default config and a config with all
-    categories enabled.
-  - Use this to ensure the app works as expected in a real environment.
+The project includes comprehensive testing:
 
 - **Unit Tests:**
   - Run with `make test-unit`
-  - These are fast, isolated tests that check individual functions and edge cases.
-  - Use this for rapid development and to verify logic changes.
+  - Tests all EM dash contexts, edge cases, and configurations
+
+- **Integration Test:**
+  - Run with `make test`
+  - Full end-to-end test using actual clipboard
+  - Verifies output automatically with multiple configurations
 
 ```bash
-# Run integration test (end-to-end)
-make test
-
 # Run unit tests
 make test-unit
+
+# Run integration test (end-to-end)
+make test
 
 # Run with coverage
 python -m pytest tests/ --cov=src --cov-report=html
@@ -202,6 +217,8 @@ python -m pytest tests/ --cov=src --cov-report=html
 - `rumps>=0.4.0` - macOS menu bar framework
 - `pyperclip>=1.8.2` - Cross-platform clipboard access
 - `watchdog>=4.0.0` - File system monitoring
+- `spacy>=3.7.0` - Natural language processing for context-aware EM dash replacement
+- `en-core-web-sm` - spaCy English language model (automatically installed)
 
 ### Development Dependencies
 - `pytest>=7.0.0` - Testing framework
@@ -228,21 +245,8 @@ python -m pytest tests/ --cov=src --cov-report=html
 - Add tests for new features
 - Update documentation as needed
 - Run `make test-unit` before submitting PRs
-
-## 📞 Getting Help
-
-- **Issues**: Use GitHub Issues for bugs and feature requests
-- **Discussions**: Use GitHub Discussions for questions and ideas
+- Use spaCy features for any new context detection
 
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Limitations and Skipped Tests
-
-Some unit tests are skipped because they require advanced NLP context detection (such as distinguishing
-nuanced uses of EM dashes in dialogue, appositives, or interruptions) that are not currently supported
-by the rule-based logic. These tests are retained in the codebase and marked with `@unittest.skip`, so
-they can be re-enabled when more advanced NLP logic is implemented in the future.
-
-See the test file for details on which cases are skipped.

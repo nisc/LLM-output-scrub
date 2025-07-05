@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LLM-output-scrub"
-version = "0.0.1"
-description = "A macOS menu bar app that scrubs smart/typographic characters from LLM output"
+version = "0.2.0-alpha"
+description = "A macOS menu bar app that converts typographic characters to ASCII using spaCy NLP for context-aware processing"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -14,16 +14,16 @@ authors = [
 maintainers = [
     {name = "nisc", email = "nisc@example.com"}
 ]
-keywords = ["macos", "llm", "clipboard", "typography", "ascii", "menu-bar", "scrub"]
+keywords = [
+    "macos", "llm", "clipboard", "typography", "ascii", "menu-bar", "scrub", "nlp",
+    "spacy", "context-aware", "em-dash", "natural-language-processing"
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -32,11 +32,14 @@ classifiers = [
     "Topic :: Desktop Environment",
     "Topic :: Text Processing",
     "Topic :: Utilities",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 requires-python = ">=3.9"
 dependencies = [
     "pyperclip>=1.8.2",
     "watchdog>=4.0.0",
+    "spacy>=3.7.0",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +50,7 @@ dev = [
     "flake8>=5.0.0",
     "mypy>=1.0.0",
     "isort>=5.0.0",
+    "spacy>=3.7.0",
 ]
 macOS = [
     "rumps>=0.4.0",
@@ -65,7 +69,7 @@ Repository = "https://github.com/nisc/LLM-output-scrub.git"
 "Release Notes" = "https://github.com/nisc/LLM-output-scrub/releases"
 
 [project.scripts]
-LLM-output-scrub = "llm_output_scrub.llm_output_scrub:main"
+LLM-output-scrub = "llm_output_scrub.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

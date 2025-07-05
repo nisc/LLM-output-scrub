@@ -29,8 +29,10 @@ coverage.xml
 htmlcov/
 *.cover
 .hypothesis/
-tests/test_smart_text_scrubbed*.txt
-example_smart_text_cleaned.txt
+tests/expected*.txt
+
+# Type checking cache
+.mypy_cache/
 
 # Logs
 *.log
@@ -60,3 +62,7 @@ Temporary Items
 *.swp
 *.swo
 *~
+
+# Application data
+nlp_stats.json
+assets/en_core_web_sm/

@@ -100,8 +100,8 @@ class ScrubConfig:
                     "replacements": {
                         "×": "*",
                         "÷": "/",
-                        "‰": "per thousand",
-                        "‱": "per ten thousand",
+                        "‰": " per thousand",
+                        "‱": " per ten thousand",
                     },
                 },
                 "currency": {

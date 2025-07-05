@@ -3,7 +3,7 @@
 # INTEGRATION TEST for llm_output_scrub.py
 # This script tests the full end-to-end pipeline using the real clipboard and file output.
 # It is NOT a unit test; see 'make test-unit' for unit tests.
-# Usage: ./scripts/test_llm_output_scrub.sh
+# Usage: ./tests/integration-test.sh
 
 set -e
 
@@ -13,9 +13,9 @@ if [ -d ".venv" ]; then
 fi
 
 # Input and output files
-INPUT_FILE="tests/test_smart_text_input.txt"
-OUTPUT_FILE_DEFAULT="tests/test_smart_text_scrubbed_default.txt"
-OUTPUT_FILE_ALL="tests/test_smart_text_scrubbed_all.txt"
+INPUT_FILE="tests/input.txt"
+OUTPUT_FILE_DEFAULT="tests/expected_default.txt"
+OUTPUT_FILE_ALL="tests/expected_all.txt"
 
 echo "=== Testing LLM Output Scrub ==="
 echo "Input file: $INPUT_FILE"
