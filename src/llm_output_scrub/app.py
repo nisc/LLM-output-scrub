@@ -9,7 +9,7 @@ import sys
 import threading
 import unicodedata
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import pyperclip
 from watchdog.events import FileSystemEventHandler
@@ -84,6 +84,9 @@ class LLMOutputScrub(rumps.App):
         try:
             # Get current clipboard content
             clipboard_text = pyperclip.paste()
+
+            # Always convert to a true Python str (handles objc.pyobjc_unicode and subclasses)
+            clipboard_text = str(clipboard_text)
 
             if not clipboard_text:
                 rumps.notification(
@@ -163,6 +166,7 @@ class LLMOutputScrub(rumps.App):
 
     def scrub_text(self, text: str) -> str:
         """Replace smart/typographic characters with plain ASCII equivalents."""
+
         # Get enabled replacements from config
         replacements = self.config.get_all_replacements()
 
@@ -192,8 +196,35 @@ class LLMOutputScrub(rumps.App):
         if self.config.config["general"]["remove_non_ascii"]:
             scrubbed_text = "".join(char if ord(char) < 128 else "" for char in scrubbed_text)
 
-        if self.config.config["general"].get("normalize_whitespace", True):
-            scrubbed_text = " ".join(scrubbed_text.split())
+        if self.config.config["general"].get("normalize_whitespace", False):
+            # Normalize whitespace within each line, preserve empty lines, trim excessive empty lines
+            lines = scrubbed_text.split("\n")
+            normalized_lines = []
+            for line in lines:
+                if line.strip():
+                    normalized_lines.append(" ".join(line.split()))
+                else:
+                    normalized_lines.append("")
+
+            # Trim multiple consecutive empty lines to single empty lines
+            trimmed_lines: List[str] = []
+            prev_was_empty = False
+            for line in normalized_lines:
+                if line.strip():  # Non-empty line
+                    trimmed_lines.append(line)
+                    prev_was_empty = False
+                else:  # Empty line
+                    if not prev_was_empty:  # Only add if previous wasn't empty
+                        trimmed_lines.append("")
+                    prev_was_empty = True
+
+            # Remove empty lines at the beginning and end
+            while trimmed_lines and not trimmed_lines[0].strip():
+                trimmed_lines.pop(0)
+            while trimmed_lines and not trimmed_lines[-1].strip():
+                trimmed_lines.pop()
+
+            scrubbed_text = "\n".join(trimmed_lines)
 
         return scrubbed_text
 

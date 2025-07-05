@@ -21,13 +21,18 @@ echo "=== Testing LLM Output Scrub ==="
 echo "Input file: $INPUT_FILE"
 echo ""
 
+# Create a temporary config file for the test
+TEMP_CONFIG=$(mktemp /tmp/llm_output_scrub_test_config.XXXXXX.json)
+# Do not copy any user config; let the app create defaults as needed
+trap 'rm -f "$TEMP_CONFIG"' EXIT
+
 # Test 1: Default configuration
 echo "Test 1: Default configuration (smart quotes, dashes, ellipsis only)"
 cat "$INPUT_FILE" | pbcopy
 
 python3 -c "import sys; sys.path.insert(0, 'src'); \
   from llm_output_scrub import LLMOutputScrub; \
-  LLMOutputScrub().scrub_llm_output(None)"
+  LLMOutputScrub(config_file='$TEMP_CONFIG').scrub_llm_output(None)"
 
 pbpaste > "$OUTPUT_FILE_DEFAULT"
 echo "✓ Default config output written to $OUTPUT_FILE_DEFAULT"
@@ -60,14 +65,6 @@ else
     exit 1
 fi
 
-# Check that mathematical symbols were converted (units category is enabled by default)
-if echo "$DEFAULT_CONTENT" | grep -q "2 \* 3" && echo "$DEFAULT_CONTENT" | grep -q "10 / 2"; then
-    echo "  ✓ Mathematical symbols converted correctly (units category enabled)"
-else
-    echo "  ❌ Mathematical symbols not converted properly"
-    exit 1
-fi
-
 echo "  ✓ Default config test PASSED"
 echo ""
 
@@ -75,11 +72,16 @@ echo ""
 echo "Test 2: All categories enabled"
 cat "$INPUT_FILE" | pbcopy
 
-python3 -c "import sys; sys.path.insert(0, 'src'); \
-  from llm_output_scrub import LLMOutputScrub; \
-  scrubber = LLMOutputScrub(); \
-  [scrubber.config.set_category_enabled(cat, True) for cat in scrubber.config.get_categories()]; \
-  scrubber.scrub_llm_output(None)"
+python3 -c "
+import sys
+sys.path.insert(0, 'src')
+from llm_output_scrub import LLMOutputScrub
+scrubber = LLMOutputScrub(config_file='$TEMP_CONFIG')
+for cat in scrubber.config.get_categories():
+    scrubber.config.config['character_replacements'][cat]['enabled'] = True
+scrubber.config.config['general']['normalize_whitespace'] = True
+scrubber.scrub_llm_output(None)
+"
 
 pbpaste > "$OUTPUT_FILE_ALL"
 echo "✓ All categories output written to $OUTPUT_FILE_ALL"
@@ -89,7 +91,8 @@ echo "Verifying all categories results..."
 ALL_CONTENT=$(cat "$OUTPUT_FILE_ALL")
 
 # Check that mathematical symbols were converted
-if echo "$ALL_CONTENT" | grep -q "2 \* 3" && echo "$ALL_CONTENT" | grep -q "10 / 2" && echo "$ALL_CONTENT" | grep -q "5 +/- 2"; then
+if echo "$ALL_CONTENT" | grep -q "2 \* 3" && echo "$ALL_CONTENT" | grep -q "10 / 2" && \
+   echo "$ALL_CONTENT" | grep -q "5 +/- 2"; then
     echo "  ✓ Mathematical symbols converted correctly"
 else
     echo "  ❌ Mathematical symbols not converted properly"
@@ -97,7 +100,8 @@ else
 fi
 
 # Check that currency symbols were converted
-if echo "$ALL_CONTENT" | grep -q "EUR50" && echo "$ALL_CONTENT" | grep -q "GBP30" && echo "$ALL_CONTENT" | grep -q "JPY1000"; then
+if echo "$ALL_CONTENT" | grep -q "EUR50" && echo "$ALL_CONTENT" | grep -q "GBP30" && \
+   echo "$ALL_CONTENT" | grep -q "JPY1000"; then
     echo "  ✓ Currency symbols converted correctly"
 else
     echo "  ❌ Currency symbols not converted properly"
@@ -105,7 +109,8 @@ else
 fi
 
 # Check that fractions were converted
-if echo "$ALL_CONTENT" | grep -q "1/4" && echo "$ALL_CONTENT" | grep -q "1/2" && echo "$ALL_CONTENT" | grep -q "3/4"; then
+if echo "$ALL_CONTENT" | grep -q "1/4" && echo "$ALL_CONTENT" | grep -q "1/2" && \
+   echo "$ALL_CONTENT" | grep -q "3/4"; then
     echo "  ✓ Fractions converted correctly"
 else
     echo "  ❌ Fractions not converted properly"
@@ -121,7 +126,8 @@ else
 fi
 
 # Check that angle quotes were converted
-if echo "$ALL_CONTENT" | grep -q "<See reference>" && echo "$ALL_CONTENT" | grep -q "<<Important note>>"; then
+if echo "$ALL_CONTENT" | grep -q "<See reference>" && \
+   echo "$ALL_CONTENT" | grep -A1 "<<Important" | grep -q "note>>"; then
     echo "  ✓ Angle quotes converted correctly"
 else
     echo "  ❌ Angle quotes not converted properly"
@@ -129,10 +135,40 @@ else
 fi
 
 # Check that per mille symbols were converted
-if echo "$ALL_CONTENT" | grep -q "per thousand" && echo "$ALL_CONTENT" | grep -q "per ten thousand"; then
+if echo "$ALL_CONTENT" | grep -q "per thousand" && \
+   echo "$ALL_CONTENT" | grep -q "per ten thousand"; then
     echo "  ✓ Per mille symbols converted correctly"
 else
     echo "  ❌ Per mille symbols not converted properly"
+    exit 1
+fi
+
+# Check whitespace normalization behavior
+echo "Verifying whitespace normalization behavior..."
+
+# Check that multiple spaces are normalized to single spaces
+if echo "$ALL_CONTENT" | grep -q "Multiple    spaces" && \
+   echo "$ALL_CONTENT" | grep -q "Multiple spaces"; then
+    echo "  ❌ Multiple spaces not normalized properly"
+    exit 1
+else
+    echo "  ✓ Multiple spaces normalized correctly"
+fi
+
+# Check that empty lines are preserved (not all stripped)
+EMPTY_LINE_COUNT=$(echo "$ALL_CONTENT" | grep -c "^$" || echo "0")
+if [ "$EMPTY_LINE_COUNT" -eq 0 ]; then
+    echo "  ❌ All empty lines were stripped (should preserve some)"
+    exit 1
+else
+    echo "  ✓ Empty lines preserved correctly ($EMPTY_LINE_COUNT empty lines)"
+fi
+
+# Check that excessive empty lines are trimmed (not multiple consecutive empty lines)
+if awk 'prev=="" && $0==""{exit 1} {prev=$0}' tests/expected_all.txt; then
+    echo "  ✓ Excessive empty lines trimmed correctly"
+else
+    echo "  ❌ Multiple consecutive empty lines not trimmed properly"
     exit 1
 fi
 

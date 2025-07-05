@@ -409,17 +409,72 @@ class TestLLMOutputScrub(unittest.TestCase):
 
     def test_whitespace_normalization(self) -> None:
         """Test whitespace normalization."""
+        # Enable normalize_whitespace
+        self.scrubber.config.config["general"]["normalize_whitespace"] = True
         test_cases = [
             ("  multiple   spaces  ", "multiple spaces"),
             ("\t\ttabs\t\t", "tabs"),
             ("\n\nnewlines\n\n", "newlines"),
             ("\u00a0non-breaking\u00a0space\u00a0", "non-breaking space"),  # Non-breaking space
+            ("a\n\n\n\nb", "a\n\nb"),  # Multiple empty lines → single empty line
+            ("a\n\n\n\n\n\nb", "a\n\nb"),  # Multiple empty lines → single empty line
+            ("a\n\n\n\nb\n\n\nc", "a\n\nb\n\nc"),  # Multiple empty lines → single empty lines
+            ("a\n\n\n\n\n\n\nb\n\n\nc\n\n\n", "a\n\nb\n\nc"),  # Multiple empty lines → single empty lines
+            ("\n\n\n\n", ""),  # All empty lines → empty string
+            ("a\n\n\n\n", "a"),  # Empty lines at end → removed
+            ("\n\n\n\na", "a"),  # Empty lines at start → removed
+            ("a\n\n\n\n\n\n", "a"),  # Empty lines at end → removed
+            ("\n\n\n\na\n\n\n\n", "a"),  # Empty lines at start/end → removed
+            ("a\n\n\n\nb\n\n\n\nc\n\n\n\n", "a\n\nb\n\nc"),  # Multiple empty lines → single empty lines
         ]
-
         for input_text, expected in test_cases:
             with self.subTest(input_text=input_text):
                 result = self.scrubber.scrub_text(input_text)
                 self.assertEqual(result, expected)
+
+    def test_whitespace_normalization_conversation_example(self) -> None:
+        """Test whitespace normalization with a realistic conversation example."""
+        # Enable normalize_whitespace
+        self.scrubber.config.config["general"]["normalize_whitespace"] = True
+
+        input_text = """This is a test of whitespace normalization.
+
+Multiple    spaces    should    be    normalized    to    single    spaces.
+
+Tabs		should		also		be		normalized.
+
+Multiple empty lines should be preserved but excessive ones trimmed:
+
+
+This line should have one empty line above it.
+
+This line should also have one empty line above it.
+
+
+And this line should have one empty line above it too.
+
+The end."""
+
+        result = self.scrubber.scrub_text(input_text)
+
+        # Check that empty lines are preserved (not all stripped)
+        empty_line_count = result.count("\n\n")
+        self.assertGreater(empty_line_count, 0, "Empty lines should be preserved")
+
+        # Check that multiple consecutive empty lines are trimmed to single empty lines
+        # Should not have more than 2 consecutive newlines anywhere
+        self.assertNotIn("\n\n\n", result, "Multiple consecutive empty lines should be trimmed")
+
+        # Check that whitespace within lines is normalized
+        lines = result.split("\n")
+        for line in lines:
+            if line.strip():  # Non-empty lines
+                # Should not have multiple consecutive spaces
+                self.assertNotIn("  ", line, "Multiple spaces should be normalized to single spaces")
+
+        # Check that the structure is preserved
+        self.assertIn("This is a test", result, "Content should be preserved")
+        self.assertIn("The end", result, "End content should be preserved")
 
     def test_remove_non_ascii(self) -> None:
         """Test removal of non-ASCII characters."""
@@ -465,6 +520,9 @@ class TestLLMOutputScrub(unittest.TestCase):
 
     def test_empty_and_whitespace_only_text(self) -> None:
         """Test handling of empty and whitespace-only text."""
+        # Enable normalize_whitespace
+        self.scrubber.config.config["general"]["normalize_whitespace"] = True
+
         test_cases = [
             ("", ""),
             ("   ", ""),
@@ -715,6 +773,9 @@ class TestLLMOutputScrub(unittest.TestCase):
 
     def test_whitespace_normalization_edge_cases(self) -> None:
         """Test edge cases for whitespace normalization."""
+        # Enable normalize_whitespace
+        self.scrubber.config.config["general"]["normalize_whitespace"] = True
+
         test_cases = [
             (
                 "\u00a0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a",

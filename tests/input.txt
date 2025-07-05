@@ -43,3 +43,21 @@ to represent parts per thousand and parts per ten thousand respectively.
 This text demonstrates how the LLM Output Scrub will convert all these
 smart characters to their plain ASCII equivalents, making the text more
 compatible with various systems and applications.
+
+Whitespace Normalization Test
+
+This section tests whitespace normalization behavior:
+
+Multiple    spaces    should    be    normalized    to    single    spaces.
+
+Tabs		should		also		be		normalized.
+
+Multiple empty lines should be preserved but excessive ones trimmed:
+
+
+This line should have one empty line above it.
+
+This line should also have one empty line above it.
+
+
+And this line should have one empty line above it too.
