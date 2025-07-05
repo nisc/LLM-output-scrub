@@ -5,19 +5,31 @@ Run directly: python3 llm_output_scrub.py
 Or build with: python3 setup.py py2app
 """
 
+import sys
 import threading
 import unicodedata
 from pathlib import Path
 from typing import Any, Optional
 
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
 import pyperclip
-import rumps  # pylint: disable=import-error
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 from llm_output_scrub.config_manager import ScrubConfig  # pylint: disable=import-error
 from llm_output_scrub.dash_nlp import get_dash_replacement  # pylint: disable=import-error
+
+# Check if we're on macOS
+if sys.platform != "darwin":
+    print("Error: This app is designed for macOS only.")
+    print("Please run this on a macOS system.")
+    sys.exit(1)
+
+try:
+    import rumps  # pylint: disable=import-error
+except ImportError:
+    print("Error: rumps is required but not installed.")
+    print("Please install with: pip install -e .[macOS]")
+    sys.exit(1)
 
 # If you get import errors, run with:
 # python -m llm_output_scrub.llm_output_scrub

@@ -5,7 +5,7 @@ Configuration for LLM Output Scrub character replacements.
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class ScrubConfig:

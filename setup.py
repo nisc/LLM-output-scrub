@@ -11,7 +11,7 @@ from setuptools import setup  # type: ignore
 APP = ["main.py"]
 DATA_FILES: List[Tuple[str, List[str]]] = []
 OPTIONS = {
-    "iconfile": "assets/icon.icns",  # Optional: add if you have an icon
+    "iconfile": "assets/icon.icns",
     "plist": {
         "CFBundleName": "LLM Output Scrub",
         "CFBundleDisplayName": "LLM Output Scrub",
@@ -23,7 +23,7 @@ OPTIONS = {
         "LSUIElement": True,  # Makes it a background app (no dock icon)
     },
     "excludes": [],
-    "packages": ["rumps", "platformdirs"],
+    "packages": ["rumps"],
     "includes": ["jaraco.text"],
     "site_packages": False,
 }
@@ -34,4 +34,9 @@ if __name__ == "__main__":
         data_files=DATA_FILES,
         options={"py2app": OPTIONS},
         setup_requires=["py2app"],
+        extras_require={
+            "dev": [
+                "isort>=5.0.0",
+            ],
+        },
     )

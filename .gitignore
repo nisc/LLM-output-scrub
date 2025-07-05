@@ -20,7 +20,6 @@ dist/
 *.egg-info/
 .eggs/
 MANIFEST
-*.icns
 icon.iconset/
 
 # Test outputs and coverage

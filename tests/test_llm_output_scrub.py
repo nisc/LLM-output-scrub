@@ -3,12 +3,12 @@
 Comprehensive tests for LLM Output Scrub functionality.
 """
 
-import os
-import sys
-import unittest
-import tempfile
 import json
+import os
 import shutil
+import sys
+import tempfile
+import unittest
 from typing import TYPE_CHECKING
 
 # Add src to path for imports
@@ -418,7 +418,7 @@ class TestLLMOutputScrub(unittest.TestCase):
             ("  multiple   spaces  ", "multiple spaces"),
             ("\t\ttabs\t\t", "tabs"),
             ("\n\nnewlines\n\n", "newlines"),
-            ("\u00A0non-breaking\u00A0space\u00A0", "non-breaking space"),  # Non-breaking space
+            ("\u00a0non-breaking\u00a0space\u00a0", "non-breaking space"),  # Non-breaking space
         ]
 
         for input_text, expected in test_cases:
@@ -647,7 +647,7 @@ class TestLLMOutputScrub(unittest.TestCase):
         """Test edge cases for whitespace normalization."""
         test_cases = [
             (
-                "\u00A0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A",
+                "\u00a0\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a",
                 "",
             ),  # Various Unicode spaces
             ("\t\n\r\f\v", ""),  # Various whitespace characters

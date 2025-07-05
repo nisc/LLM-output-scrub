@@ -3,7 +3,8 @@ Context-aware EM/EN dash replacement logic for LLM Output Scrub.
 """
 
 import re
-from .wordlists import interruption_phrases, emphasis_words, compound_patterns
+
+from .wordlists import compound_patterns, emphasis_words, interruption_phrases
 
 
 def get_dash_replacement(text: str, position: int) -> str:
@@ -13,68 +14,31 @@ def get_dash_replacement(text: str, position: int) -> str:
     before = text[:position].strip()
     after = text[position + 1 :].strip()
 
-    # 1. DIALOGUE AND ATTRIBUTION (quote followed by name or attribution)
-    if _is_dialogue_context(before, after):
-        return ", "
+    # Check all context types and return the first match
+    replacement = _determine_replacement(text, position, before, after)
+    return replacement if replacement else ", "
 
-    # 2. RANGE DETECTION (Enhanced) - check before mathematical
-    if _is_range_context(before, after):
-        return "-"
 
-    # 3. MATHEMATICAL AND TECHNICAL CONTEXTS
-    if _is_mathematical_context(before, after):
-        return " - "
+def _determine_replacement(text: str, position: int, before: str, after: str) -> str:
+    """Determine the replacement by checking all context types in order of priority."""
+    context_checks = [
+        lambda: _check_dialogue_context(before, after),
+        lambda: _check_range_context(before, after),
+        lambda: _check_mathematical_context(before, after),
+        lambda: _check_emphasis_context(before, after),
+        lambda: _check_interruption_context(before, after),
+        lambda: _check_parenthetical_context(text, position, before, after),
+        lambda: _check_list_context(text, position, before, after),
+        lambda: _check_compound_word_context(before, after),
+        lambda: _check_sentence_boundary_context(before, after),
+    ]
 
-    # 4. EMPHASIS AND FOCUS (check before interruption)
-    if _is_emphasis_context(before, after):
-        return ", "
+    for check in context_checks:
+        result = check()
+        if result:
+            return result
 
-    # 5. SENTENCE INTERRUPTION (e.g., 'He stopped—what was that?')
-    if _is_sentence_boundary_or_interruption(before, after):
-        return "... "
-
-    # 6. PARENTHETICAL AND APPOSITIVE (check before compound words)
-    prev_dash = text.rfind("—", 0, position)
-    if prev_dash != -1:
-        before_prev = text[:prev_dash].strip()
-        after_prev_start = prev_dash + 1
-        after_prev = text[after_prev_start:position].strip()
-        is_range = _is_range_context(before_prev, after_prev)
-        if is_range:
-            return ", "
-    if _is_parenthetical_context(before, after):
-        return ", "
-
-    # 7. LIST/ENUMERATION WITH COMPOUND WORDS (e.g., 1—self—driving cars)
-    if before and before[-1].isdigit() and after and after[0].isalpha():
-        return ": "
-
-    # Handle compound words in numeral-list contexts (e.g., "1: self—driving cars")
-    if before and after and before[-1].isalpha() and after[0].isalpha():
-        prev_colon = text.rfind(":", 0, position)
-        if prev_colon != -1:
-            before_colon = text[:prev_colon].strip()
-            if before_colon and before_colon[-1].isdigit():
-                return "-"
-
-    # 8. COMPOUND WORDS AND HYPHENATION (more specific check)
-    if _is_compound_word_context(before, after):
-        if len(before.split()[-1]) <= 3:
-            return "-"
-        else:
-            return " - "
-
-    # 9. SENTENCE BOUNDARY (e.g., 'He stopped—what was that?')
-    if before and after and before[-1].isalpha() and after[0].isupper():
-        if len(before.split()[-1]) > 1 and len(after.split()[0]) > 1:
-            return ". "
-
-    # 10. LIST AND ENUMERATION
-    if _is_list_context(before):
-        return " - "
-
-    # Default: treat as parenthetical
-    return ", "
+    return ""
 
 
 def _find_sentence_start(text: str, position: int) -> int:
@@ -249,3 +213,87 @@ def _is_compound_word_context(before: str, after: str) -> bool:
                 return True
 
     return False
+
+
+def _check_dialogue_context(before: str, after: str) -> str:
+    if _is_dialogue_context(before, after):
+        return ", "
+    return ""
+
+
+def _check_range_context(before: str, after: str) -> str:
+    if _is_range_context(before, after):
+        return "-"
+    return ""
+
+
+def _check_mathematical_context(before: str, after: str) -> str:
+    if _is_mathematical_context(before, after):
+        return " - "
+    return ""
+
+
+def _check_emphasis_context(before: str, after: str) -> str:
+    if _is_emphasis_context(before, after):
+        return ", "
+    return ""
+
+
+def _check_interruption_context(before: str, after: str) -> str:
+    if _is_sentence_boundary_or_interruption(before, after):
+        return "... "
+    return ""
+
+
+def _check_parenthetical_context(text: str, position: int, before: str, after: str) -> str:
+    """Check if this is a parenthetical/appositive context."""
+    # Check for previous dash in range context
+    prev_dash = text.rfind("—", 0, position)
+    if prev_dash != -1:
+        before_prev = text[:prev_dash].strip()
+        after_prev_start = prev_dash + 1
+        after_prev = text[after_prev_start:position].strip()
+        if _is_range_context(before_prev, after_prev):
+            return ", "
+
+    if _is_parenthetical_context(before, after):
+        return ", "
+    return ""
+
+
+def _check_list_context(text: str, position: int, before: str, after: str) -> str:
+    """Check if this is a list/enumeration context."""
+    # List/Enumeration with compound words (e.g., 1—self—driving cars)
+    if before and before[-1].isdigit() and after and after[0].isalpha():
+        return ": "
+
+    # Handle compound words in numeral-list contexts (e.g., "1: self—driving cars")
+    if before and after and before[-1].isalpha() and after[0].isalpha():
+        prev_colon = text.rfind(":", 0, position)
+        if prev_colon != -1:
+            before_colon = text[:prev_colon].strip()
+            if before_colon and before_colon[-1].isdigit():
+                return "-"
+
+    if _is_list_context(before):
+        return " - "
+
+    return ""
+
+
+def _check_compound_word_context(before: str, after: str) -> str:
+    """Check if this is a compound word context."""
+    if _is_compound_word_context(before, after):
+        if len(before.split()[-1]) <= 3:
+            return "-"
+        else:
+            return " - "
+    return ""
+
+
+def _check_sentence_boundary_context(before: str, after: str) -> str:
+    """Check if this is a sentence boundary context."""
+    if before and after and before[-1].isalpha() and after[0].isupper():
+        if len(before.split()[-1]) > 1 and len(after.split()[0]) > 1:
+            return ". "
+    return ""
