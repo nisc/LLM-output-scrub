@@ -3,6 +3,7 @@ Context-aware EM/EN dash replacement logic for LLM Output Scrub.
 """
 
 import re
+from .wordlists import interruption_phrases, emphasis_words, compound_patterns
 
 
 def get_dash_replacement(text: str, position: int) -> str:
@@ -12,19 +13,27 @@ def get_dash_replacement(text: str, position: int) -> str:
     before = text[:position].strip()
     after = text[position + 1 :].strip()
 
-    # 1. MATHEMATICAL AND TECHNICAL CONTEXTS
-    if _is_mathematical_context(before, after):
-        return " - "
+    # 1. DIALOGUE AND ATTRIBUTION (quote followed by name or attribution)
+    if _is_dialogue_context(before, after):
+        return ", "
 
-    # 2. RANGE DETECTION (Enhanced)
+    # 2. RANGE DETECTION (Enhanced) - check before mathematical
     if _is_range_context(before, after):
         return "-"
 
-    # 3. SENTENCE INTERRUPTION (e.g., 'He stopped—what was that?')
+    # 3. MATHEMATICAL AND TECHNICAL CONTEXTS
+    if _is_mathematical_context(before, after):
+        return " - "
+
+    # 4. EMPHASIS AND FOCUS (check before interruption)
+    if _is_emphasis_context(before, after):
+        return ", "
+
+    # 5. SENTENCE INTERRUPTION (e.g., 'He stopped—what was that?')
     if _is_sentence_boundary_or_interruption(before, after):
         return "... "
 
-    # 4. PARENTHETICAL AND APPOSITIVE
+    # 6. PARENTHETICAL AND APPOSITIVE (check before compound words)
     prev_dash = text.rfind("—", 0, position)
     if prev_dash != -1:
         before_prev = text[:prev_dash].strip()
@@ -36,7 +45,7 @@ def get_dash_replacement(text: str, position: int) -> str:
     if _is_parenthetical_context(before, after):
         return ", "
 
-    # 5. LIST/ENUMERATION WITH COMPOUND WORDS (e.g., 1—self—driving cars)
+    # 7. LIST/ENUMERATION WITH COMPOUND WORDS (e.g., 1—self—driving cars)
     if before and before[-1].isdigit() and after and after[0].isalpha():
         return ": "
 
@@ -48,27 +57,19 @@ def get_dash_replacement(text: str, position: int) -> str:
             if before_colon and before_colon[-1].isdigit():
                 return "-"
 
-    # If dash is between short words (compound), use '-' only if both sides are <4 chars and not parenthetical
-    if _is_compound_word_context(before):
+    # 8. COMPOUND WORDS AND HYPHENATION (more specific check)
+    if _is_compound_word_context(before, after):
         if len(before.split()[-1]) <= 3:
             return "-"
         else:
             return " - "
 
-    # 6. SENTENCE BOUNDARY (e.g., 'He stopped—what was that?')
+    # 9. SENTENCE BOUNDARY (e.g., 'He stopped—what was that?')
     if before and after and before[-1].isalpha() and after[0].isupper():
         if len(before.split()[-1]) > 1 and len(after.split()[0]) > 1:
             return ". "
 
-    # 7. DIALOGUE AND ATTRIBUTION (quote followed by capitalized name)
-    if _is_dialogue_context(before, after):
-        return ", "
-
-    # 8. EMPHASIS AND FOCUS
-    if _is_emphasis_context(before, after):
-        return " - "
-
-    # 9. LIST AND ENUMERATION
+    # 10. LIST AND ENUMERATION
     if _is_list_context(before):
         return " - "
 
@@ -91,23 +92,39 @@ def _find_sentence_end(text: str, position: int) -> int:
 
 
 def _is_mathematical_context(before: str, after: str) -> bool:
+    # More precise mathematical patterns that exclude ranges
     math_patterns = [
-        r"\d+\s*[+\-*/=<>≤≥≠≈±]\s*$",
-        r"[+\-*/=<>≤≥≠≈±]\s*\d+$",
+        # Variable operations: x—y (but not single letters which are ranges)
         r"[a-zA-Z]\s*[+\-*/=<>≤≥≠≈±]\s*$",
         r"[+\-*/=<>≤≥≠≈±]\s*[a-zA-Z]$",
+        # Function notation: f(x)—g(x)
+        r"[a-zA-Z]\([^)]*\)\s*[+\-*/=<>≤≥≠≈±]\s*$",
+        r"[+\-*/=<>≤≥≠≈±]\s*[a-zA-Z]\([^)]*\)$",
+        # Complex expressions with operators
+        r"\d+\s*[+\-*/=<>≤≥≠≈±]\s*$",
+        r"[+\-*/=<>≤≥≠≈±]\s*\d+$",
     ]
+
     for pattern in math_patterns:
         if re.search(pattern, before) or re.search(pattern, after):
             return True
+
+    # Special case: function notation like f(x)—g(x)
+    if re.search(r"[a-zA-Z]\([^)]*\)\s*$", before) and re.search(r"^[a-zA-Z]\([^)]*\)", after):
+        return True
+
     return False
 
 
 def _is_range_context(before: str, after: str) -> bool:
     if not before or not after:
         return False
+
+    # Simple numeric ranges: 1—5, 2.1—3.0
     if (before[-1].isdigit() or before[-1] == ".") and (after[0].isdigit() or after[0] == "."):
         return True
+
+    # Single letter ranges: A—Z
     if (
         before[-1].isalpha()
         and after[0].isalpha()
@@ -115,60 +132,58 @@ def _is_range_context(before: str, after: str) -> bool:
         and len(after.split()[0]) == 1
     ):
         return True
+
+    # Date patterns
     date_patterns = [r"\d{4}$", r"\d{1,2}/\d{1,2}$", r"\d{1,2}-\d{1,2}$"]
     for pattern in date_patterns:
         if re.search(pattern, before) and re.search(pattern, after):
             return True
+
+    # Version numbers: 2.1—3.0
     if re.search(r"\d+\.\d+$", before) and re.search(r"^\d+\.\d+", after):
         return True
+
+    # Page numbers: Pages 1—10
+    if re.search(r"Pages?\s+\d+$", before) and re.search(r"^\d+", after):
+        return True
+
+    # Years: 2020—2023
+    if re.search(r"Years?\s+\d{4}$", before) and re.search(r"^\d{4}", after):
+        return True
+
     return False
 
 
 def _is_dialogue_context(before: str, after: str) -> bool:
-    # Only match if before ends with quote and after starts with a capitalized name/attribution
+    # Match if before ends with quote and after starts with a capitalized name/attribution
     if re.search(r'["\']\s*$', before) and re.match(r"^[A-Z][a-z]+", after):
         return True
+    # Match attribution patterns like "The answer—Mary replied" (no quote)
+    if re.search(r"\s+$", before) and re.match(r"^[A-Z][a-z]+", after):
+        # Check if this looks like attribution by looking for common patterns
+        # Capitalized name followed by lowercase word (likely a verb)
+        if re.match(r"^[A-Z][a-z]+\s+[a-z]+", after):
+            return True
     return False
 
 
 def _is_sentence_boundary_or_interruption(before: str, after: str) -> bool:
+    # Check for sentence-ending punctuation
     if after and after[0] in ".!?":
         return True
-    interruption_phrases = [
-        "never mind",
-        "forget it",
-        "whatever",
-        "anyway",
-        "actually",
-        "well",
-        "oh",
-        "um",
-        "uh",
-        "er",
-        "hmm",
-        "so",
-        "but",
-        "however",
-        "nevertheless",
-        "meanwhile",
-        "suddenly",
-        "unexpectedly",
-        "fortunately",
-        "unfortunately",
-        "interestingly",
-        "surprisingly",
-        "obviously",
-        "clearly",
-        "apparently",
-        "evidently",
-        "what",
-    ]
+
+    # Check for specific interruption phrases that indicate abrupt breaks
     after_lower = after.lower()
     for phrase in interruption_phrases:
         if after_lower.startswith(phrase):
             return True
+
+    # Check for sentence boundary (capitalized word after dash)
     if len(after) > 0 and after[0].isupper() and len(before) > 0 and before[-1].isalpha():
-        return True
+        # But exclude dialogue and emphasis contexts
+        if not _is_dialogue_context(before, after) and not _is_emphasis_context(before, after):
+            return True
+
     return False
 
 
@@ -188,8 +203,21 @@ def _is_parenthetical_context(before: str, after: str) -> bool:
 
 
 def _is_emphasis_context(before: str, after: str) -> bool:
-    if (not before or before[-1] in " \n\t") and (not after or after[0] in " \n\t"):
-        return True
+    # Emphasis typically involves short, impactful words or phrases
+    # that are set off by dashes for dramatic effect
+    after_lower = after.lower()
+    for word in emphasis_words:
+        if after_lower.startswith(word):
+            return True
+
+    # Also check for patterns like "The result—amazingly—was perfect"
+    # where the emphasis word is between two dashes
+    if before and after:
+        before_words = before.split()
+        after_words = after.split()
+        if before_words and after_words and len(before_words[-1]) > 2 and len(after_words[0]) > 2:
+            return True
+
     return False
 
 
@@ -201,30 +229,23 @@ def _is_list_context(before: str) -> bool:
     return False
 
 
-def _is_compound_word_context(before: str) -> bool:
+def _is_compound_word_context(before: str, after: str) -> bool:
     if not before:
         return False
-    if before[-1].isalpha() and len(before.split()[-1]) <= 3:
-        return True
-    compound_patterns = [
-        "self-",
-        "pre-",
-        "post-",
-        "anti-",
-        "pro-",
-        "co-",
-        "non-",
-        "re-",
-        "un-",
-        "-based",
-        "-oriented",
-        "-friendly",
-        "-free",
-        "-less",
-        "-like",
-        "-wise",
-    ]
+
+    # Only treat as compound word if it's clearly a compound pattern
+    # Don't treat general alpha-alpha sequences as compound words
     for pattern in compound_patterns:
         if before.endswith(pattern):
             return True
+
+    # Only treat short words as potential compound parts if they're clearly compound-like
+    if before[-1].isalpha() and len(before.split()[-1]) <= 3:
+        # Check if this looks like a compound word pattern
+        if after and after[0].isalpha():
+            # Only treat as compound if it's a very short word followed by a longer word
+            # and it's not clearly parenthetical context
+            if len(after.split()[0]) > 3 and not _is_parenthetical_context(before, after):
+                return True
+
     return False

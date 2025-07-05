@@ -1,6 +1,8 @@
 # 🧹 LLM Output Scrub
 
-A customizable macOS menu bar app that automatically scrubs smart/typographic characters from LLM output (or really any text) into plain ASCII, with configurable replacement rules for smart quotes, dashes, and other symbols.
+A customizable macOS menu bar app that automatically scrubs smart/typographic characters from LLM
+output (or really any text) into plain ASCII, with configurable replacement rules for smart quotes,
+dashes, and other symbols.
 
 [![Python](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/macOS-10.12+-green.svg)](https://www.apple.com/macos/)
@@ -73,7 +75,8 @@ python -m llm_output_scrub.llm_output_scrub
 
 ## ⚙️ Configuration
 
-The app uses a JSON configuration file located at `~/.llm_output_scrub/config.json` that allows you to customize all character replacements. The configuration includes:
+The app uses a JSON configuration file located at `~/.llm_output_scrub/config.json` that allows you to
+customize all character replacements. The configuration includes:
 
 ### Character Replacement Categories
 
@@ -143,7 +146,8 @@ make clean
 
 ### Common Issues
 - **Virtual environment issues**: Run `make clean-venv && make setup` to recreate the environment.
-- **Import errors**: The app uses package-style imports. Run with `PYTHONPATH=src python -m llm_output_scrub.llm_output_scrub` or use `make run`.
+- **Import errors**: The app uses package-style imports. Run with
+  `PYTHONPATH=src python -m llm_output_scrub.llm_output_scrub` or use `make run`.
 
 ## 📁 Project Structure
 
@@ -170,8 +174,10 @@ The project includes both integration and unit testing:
 
 - **Integration Test:**
   - Run with `make test`
-  - This is a full end-to-end test: it scrubs a real example file using the actual clipboard and writes the output to files.
-  - It verifies the output automatically and checks both the default config and a config with all categories enabled.
+  - This is a full end-to-end test: it scrubs a real example file using the actual clipboard and
+    writes the output to files.
+  - It verifies the output automatically and checks both the default config and a config with all
+    categories enabled.
   - Use this to ensure the app works as expected in a real environment.
 
 - **Unit Tests:**
@@ -231,3 +237,12 @@ python -m pytest tests/ --cov=src --cov-report=html
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Limitations and Skipped Tests
+
+Some unit tests are skipped because they require advanced NLP context detection (such as distinguishing
+nuanced uses of EM dashes in dialogue, appositives, or interruptions) that are not currently supported
+by the rule-based logic. These tests are retained in the codebase and marked with `@unittest.skip`, so
+they can be re-enabled when more advanced NLP logic is implemented in the future.
+
+See the test file for details on which cases are skipped.
