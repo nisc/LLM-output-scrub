@@ -1,8 +1,9 @@
 # 🧹 LLM Output Scrub
 
-A macOS menu bar app that scrubs smart/typographic characters from LLM output into plain ASCII.
-LLMs often ignore instructions to avoid smart quotes, dashes, and other symbols. This app
-uses spaCy NLP for context-aware processing and rule-based replacement.
+LLMs often ignore instructions to avoid smart quotes, EM/EN dashes, and other symbols. This macOS menu bar app combines spaCy NLP for context-aware processing with a rule-based system to scrub typographic characters from LLM (or any other) output.
+
+See [TODO.md](TODO.md) for planned improvements.
+
 
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/macOS-10.12+-green.svg)](https://www.apple.com/macos/)
@@ -144,31 +145,31 @@ customize all character replacements. The configuration includes:
 
 Each category can be enabled/disabled independently, and you can add custom replacements to any category.
 
-## 🛠️ Development
+## 🛠️ Development and Testing
 
-```bash
-# Set up development environment (includes spaCy model)
-make setup
-
-# Run tests
-make test-unit
-
-# Run the app
-make run
-
-# Clean build artifacts
-make clean
+```make
+make setup       # Set up environment
+make build       # Build the standalone macOS app
+make install     # Install the app to /Applications
+make run         # Run the app
+make test-unit   # Unit tests
+make test        # Integration tests
+make clean       # Clean build artifacts
+make distclean   # Remove all build artifacts and the virtual environment
+make uninstall   # Remove the app from /Applications
 ```
 
 ### Common Issues
 - **Virtual environment issues**: Run `make clean-venv && make setup` to recreate the environment.
-- **spaCy model issues**: The setup automatically installs the English language model.
 - **Import errors**: The app uses package-style imports. Run with `make run` or manually with `PYTHONPATH=src python src/run_app.py`.
+
+### Contributing
+Follow existing code style, add tests for new features, and run `make test-unit` before submitting PRs.
 
 ## 📁 Project Structure
 
 ```
-LLM-output-scrub/
+llm_output_scrub/
 ├── src/llm_output_scrub/     # Source code
 │   ├── __init__.py           # Python init
 │   ├── app.py                # Main application
@@ -179,73 +180,18 @@ LLM-output-scrub/
 ├── tests/                    # Test suite
 │   ├── test_scrub.py         # Unit tests
 │   ├── integration-test.sh   # Integration test script
-│   ├── input.txt             # Test input data
-│   └── expected*.txt         # Expected test outputs
-├── assets/                   # App assets (icons, etc.)
+│   └── input.txt             # Test input data
+├── assets/                   # App assets (icons, spaCy model)
 ├── pyproject.toml            # Project configuration & dependencies
 ├── setup.py                  # py2app build configuration
-└── Makefile                  # Build commands
-```
-
-## 🧪 Testing
-
-The project includes comprehensive testing:
-
-- **Unit Tests:**
-  - Run with `make test-unit`
-  - Tests all EM dash contexts, edge cases, and configurations
-
-- **Integration Test:**
-  - Run with `make test`
-  - Full end-to-end test using actual clipboard
-  - Verifies output automatically with multiple configurations
-
-```bash
-# Run unit tests
-make test-unit
-
-# Run integration test (end-to-end)
-make test
-
-# Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
+├── Makefile                  # Build commands
+├── TODO.md                   # Development roadmap
+└── LICENSE                   # MIT license
 ```
 
 ## 📦 Dependencies
 
-### Runtime Dependencies
-- `rumps>=0.4.0` - macOS menu bar framework
-- `pyperclip>=1.8.2` - Cross-platform clipboard access
-- `watchdog>=4.0.0` - File system monitoring
-- `spacy>=3.7.0` - Natural language processing for context-aware EM dash replacement
-- `en-core-web-sm` - spaCy English language model (automatically installed)
-
-### Development Dependencies
-- `pytest>=7.0.0` - Testing framework
-- `pytest-cov>=4.0.0` - Coverage reporting
-- `black>=22.0.0` - Code formatting
-- `flake8>=5.0.0` - Linting
-- `mypy>=1.0.0` - Type checking
-
-### Build Dependencies
-- `py2app>=0.28.0` - macOS app bundling
-- `pillow>=9.0.0` - Image processing
-- `jaraco.text` - Text utilities
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-- Follow the existing code style (Black formatting, 110 character line length)
-- Add tests for new features
-- Update documentation as needed
-- Run `make test-unit` before submitting PRs
-- Use spaCy features for any new context detection
+Key dependencies: `rumps` (menu bar), `pyperclip` (clipboard), `spacy` (NLP), `py2app` (bundling). See `pyproject.toml` for full list.
 
 ## 📝 License
 
