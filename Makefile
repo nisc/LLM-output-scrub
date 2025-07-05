@@ -33,11 +33,12 @@ install-deps: venv
 	@$(VENV_PIP) install .[dev,build]
 
 # Run the test script to scrub the example file
-# Output: tests/test_smart_text_scrubbed.txt
+# INTEGRATION TEST: end-to-end, real clipboard, real file output
 test: install-deps
 	bash ./scripts/test_llm_output_scrub.sh
 
 # Run unit tests
+# UNIT TESTS: fast, isolated, logic only
 test-unit: install-deps
 	$(VENV_PYTHON) -m pytest tests/ -v
 
@@ -47,7 +48,7 @@ build: install-deps
 
 # Remove build artifacts and output files
 clean:
-	rm -rf build/ dist/ *.icns icon.iconset *.egg-info tests/test_smart_text_scrubbed.txt \
+	rm -rf build/ dist/ *.icns icon.iconset *.egg-info tests/test_smart_text_scrubbed*.txt \
 		.pytest_cache .coverage htmlcov coverage.xml .mypy_cache
 	# Remove all __pycache__ directories recursively (Python bytecode cache)
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

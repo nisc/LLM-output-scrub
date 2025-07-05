@@ -166,14 +166,25 @@ LLM-output-scrub/
 
 ## 🧪 Testing
 
-The project includes comprehensive testing:
+The project includes both integration and unit testing:
+
+- **Integration Test:**
+  - Run with `make test`
+  - This is a full end-to-end test: it scrubs a real example file using the actual clipboard and writes the output to files.
+  - It verifies the output automatically and checks both the default config and a config with all categories enabled.
+  - Use this to ensure the app works as expected in a real environment.
+
+- **Unit Tests:**
+  - Run with `make test-unit`
+  - These are fast, isolated tests that check individual functions and edge cases.
+  - Use this for rapid development and to verify logic changes.
 
 ```bash
+# Run integration test (end-to-end)
+make test
+
 # Run unit tests
 make test-unit
-
-# Run integration test (scrubs example file)
-make test
 
 # Run with coverage
 python -m pytest tests/ --cov=src --cov-report=html

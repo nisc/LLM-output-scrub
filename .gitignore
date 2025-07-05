@@ -1,46 +1,42 @@
-# Python
+# Python bytecode and cache
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
 # Virtual environments
-.env
-.venv
-env/
+.venv/
+.env/
 venv/
+env/
 ENV/
-env.bak/
+.env.bak/
 venv.bak/
 
-# Testing
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+MANIFEST
+*.icns
+icon.iconset/
+
+# Test outputs and coverage
 .pytest_cache/
 .coverage
-htmlcov/
-.tox/
-.nox/
 coverage.xml
+htmlcov/
 *.cover
 .hypothesis/
+tests/test_smart_text_scrubbed*.txt
+example_smart_text_cleaned.txt
 
-# macOS
+# Logs
+*.log
+
+# macOS system files
 .DS_Store
 .AppleDouble
 .LSOverride
@@ -59,21 +55,9 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-# Build artifacts
-*.icns
-icon.iconset/
-build/
-dist/
-
-# Test outputs
-example_smart_text_cleaned.txt
-tests/test_smart_text_scrubbed.txt
-
-# IDE
+# Editor/IDE
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
-
-# Logs
-*.log
