@@ -22,9 +22,9 @@ from llm_output_scrub.nlp import get_dash_replacement_nlp, get_nlp_processor  # 
 try:
     import AppKit  # type: ignore
 
-    NSApp = AppKit.NSApplication.sharedApplication()
+    NS_APP = AppKit.NSApplication.sharedApplication()  # pylint: disable=no-member
 except ImportError:
-    NSApp = None
+    NS_APP = None
 
 # Check if we're on macOS
 if sys.platform != "darwin":
@@ -40,9 +40,9 @@ except ImportError as exc:
 
 def bring_app_to_foreground() -> None:
     """Bring the app to the foreground to ensure dialogs are visible."""
-    if NSApp is not None:
+    if NS_APP is not None:
         try:
-            NSApp.activate(True)
+            NS_APP.activate(True)
         except Exception:  # pylint: disable=broad-except
             pass  # Ignore any errors with window management
 
@@ -108,7 +108,7 @@ class LLMOutputScrub(rumps.App):
 
             if not clipboard_text:
                 rumps.notification(
-                    title="LLM Output Scrub", subtitle="No content", message="Clipboard is empty"
+                    title="LLM Output Scrub", subtitle="Empty clipboard", message="No text to process"
                 )  # fmt: off
                 return
 
@@ -123,7 +123,7 @@ class LLMOutputScrub(rumps.App):
                 # No changes were made
                 rumps.notification(
                     title="LLM Output Scrub",
-                    subtitle="No changes needed",
+                    subtitle="Already clean",
                     message=f"Text was already clean ({len(clipboard_text)} characters)",
                 )
             else:
