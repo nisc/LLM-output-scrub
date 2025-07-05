@@ -137,17 +137,28 @@ class LLMOutputScrub(rumps.App):
             processor = get_nlp_processor()
             processor.print_stats()
 
-            # Also show in notification
-            spacy_enhanced = processor.stats.get("spacy_enhanced", 0)
-            rule_based_only = processor.stats.get("rule_based_only", 0)
+            # Get detailed statistics for notification
             total_dashes = processor.stats.get("total_dashes", 0)
 
             if total_dashes > 0:
-                spacy_pct = spacy_enhanced / total_dashes * 100
+                spacy_decisions = processor.stats.get("spacy_decisions", 0)
+                fallback_decisions = processor.stats.get("fallback_decisions", 0)
+                spacy_pct = spacy_decisions / total_dashes * 100
+
+                # Calculate average confidence
+                confidence_scores = processor.stats.get("confidence_scores", [1])
+                avg_confidence = sum(confidence_scores) / len(confidence_scores)
+
+                # Create concise notification message (macOS has limits)
+                message = f"High-confidence: {spacy_decisions} ({spacy_pct:.1f}%)\n"
+                message += f"Fallback: {fallback_decisions} ({100-spacy_pct:.1f}%)\n"
+                message += f"Avg confidence: {avg_confidence:.2f}"
+
+                # Show concise notification (macOS notifications have character limits)
                 rumps.notification(
-                    title="NLP Stats",
-                    subtitle=f"Total: {total_dashes} dashes",
-                    message=f"spaCy Enhanced: {spacy_pct:.1f}% | Rule-based: {rule_based_only}",
+                    title="📊 NLP Statistics",
+                    subtitle=f"{total_dashes} dashes processed",
+                    message=message,
                 )
             else:
                 rumps.notification(title="NLP Stats", subtitle="No data", message="No dashes processed yet")
