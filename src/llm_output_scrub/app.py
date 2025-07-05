@@ -18,6 +18,14 @@ from watchdog.observers import Observer
 from llm_output_scrub.config_manager import ScrubConfig  # pylint: disable=import-error
 from llm_output_scrub.nlp import get_dash_replacement_nlp, get_nlp_processor  # pylint: disable=import-error
 
+# macOS-specific imports for window management
+try:
+    import AppKit  # type: ignore
+
+    NSApp = AppKit.NSApplication.sharedApplication()
+except ImportError:
+    NSApp = None
+
 # Check if we're on macOS
 if sys.platform != "darwin":
     raise ImportError("This app is designed for macOS only.")
@@ -28,6 +36,16 @@ except ImportError as exc:
     raise ImportError(
         "rumps is required but not installed. Please install with: pip install -e .[macOS]"
     ) from exc
+
+
+def bring_app_to_foreground() -> None:
+    """Bring the app to the foreground to ensure dialogs are visible."""
+    if NSApp is not None:
+        try:
+            NSApp.activate(True)
+        except Exception:  # pylint: disable=broad-except
+            pass  # Ignore any errors with window management
+
 
 # If you get import errors, run with:
 # python -m llm_output_scrub.app
@@ -100,12 +118,21 @@ class LLMOutputScrub(rumps.App):
             # Put scrubbed text back to clipboard
             pyperclip.copy(scrubbed_text)
 
-            # Show notification
-            rumps.notification(
-                title="LLM Output Scrub",
-                subtitle="Success",
-                message=f"Scrubbed {len(clipboard_text)} characters",
-            )
+            # Check if any changes were made
+            if scrubbed_text == clipboard_text:
+                # No changes were made
+                rumps.notification(
+                    title="LLM Output Scrub",
+                    subtitle="No changes needed",
+                    message=f"Text was already clean ({len(clipboard_text)} characters)",
+                )
+            else:
+                # Changes were made
+                rumps.notification(
+                    title="LLM Output Scrub",
+                    subtitle="Success",
+                    message=f"Scrubbed {len(clipboard_text)} characters",
+                )
 
         except (pyperclip.PyperclipException, OSError) as e:
             rumps.notification(title="LLM Output Scrub", subtitle="Error", message=str(e))
@@ -128,6 +155,7 @@ class LLMOutputScrub(rumps.App):
                 message += f"  ✗ {cat.replace('_', ' ').title()}\n"
 
         message += "\nEdit the JSON config file to customize replacements."
+        bring_app_to_foreground()
         rumps.alert(title="LLM Output Scrub Configuration", message=message)
 
     @rumps.clicked("NLP Stats")  # type: ignore[misc]
@@ -137,33 +165,44 @@ class LLMOutputScrub(rumps.App):
             processor = get_nlp_processor()
             processor.print_stats()
 
-            # Get detailed statistics for notification
+            # Get detailed statistics
             total_dashes = processor.stats.get("total_dashes", 0)
 
             if total_dashes > 0:
                 spacy_decisions = processor.stats.get("spacy_decisions", 0)
                 fallback_decisions = processor.stats.get("fallback_decisions", 0)
                 spacy_pct = spacy_decisions / total_dashes * 100
+                fallback_pct = fallback_decisions / total_dashes * 100
 
                 # Calculate average confidence
                 confidence_scores = processor.stats.get("confidence_scores", [1])
                 avg_confidence = sum(confidence_scores) / len(confidence_scores)
 
-                # Create concise notification message (macOS has limits)
-                message = f"High-confidence: {spacy_decisions} ({spacy_pct:.1f}%)\n"
-                message += f"Fallback: {fallback_decisions} ({100-spacy_pct:.1f}%)\n"
-                message += f"Avg confidence: {avg_confidence:.2f}"
+                # Build detailed message for alert dialog
+                message = f"Total dashes processed: {total_dashes}\n"
+                message += f"High-confidence decisions: {spacy_decisions} ({spacy_pct:.1f}%)\n"
+                message += f"Fallback decisions: {fallback_decisions} ({fallback_pct:.1f}%)\n\n"
 
-                # Show concise notification (macOS notifications have character limits)
-                rumps.notification(
-                    title="📊 NLP Statistics",
-                    subtitle=f"{total_dashes} dashes processed",
-                    message=message,
-                )
+                # Add context types
+                context_types = processor.stats.get("context_types", {})
+                if context_types:
+                    message += "Context types:\n"
+                    for context_type, count in context_types.items():
+                        pct = count / total_dashes * 100
+                        message += f"  {context_type}: {count} ({pct:.1f}%)\n"
+                    message += "\n"
+
+                message += f"Average confidence: {avg_confidence:.2f}"
+
+                # Show detailed alert dialog instead of notification
+                bring_app_to_foreground()
+                rumps.alert(title="📊 NLP Statistics", message=message)
             else:
-                rumps.notification(title="NLP Stats", subtitle="No data", message="No dashes processed yet")
+                bring_app_to_foreground()
+                rumps.alert(title="NLP Stats", message="No dashes processed yet")
         except (ValueError, KeyError, TypeError) as e:
-            rumps.notification(title="NLP Stats Error", subtitle="Error", message=str(e))
+            bring_app_to_foreground()
+            rumps.alert(title="NLP Stats Error", message=str(e))
 
     @rumps.clicked("About")  # type: ignore[misc]
     def about(self, _: Any) -> None:
@@ -173,6 +212,7 @@ class LLMOutputScrub(rumps.App):
             "Click 'Scrub Clipboard' to process the current clipboard content.\n"
             "Click 'Configure' to view current settings."
         )
+        bring_app_to_foreground()
         rumps.alert(title="LLM Output Scrub", message=message)
 
     def scrub_text(self, text: str) -> str:
