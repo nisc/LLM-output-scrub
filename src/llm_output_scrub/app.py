@@ -22,7 +22,8 @@ from llm_output_scrub.nlp import get_dash_replacement_nlp, get_nlp_processor  # 
 try:
     import AppKit  # type: ignore
 
-    NS_APP = AppKit.NSApplication.sharedApplication()  # pylint: disable=no-member
+    # Get the shared application instance
+    NS_APP = getattr(AppKit, "NSApplication").sharedApplication()
 except ImportError:
     NS_APP = None
 
@@ -38,13 +39,14 @@ except ImportError as exc:
     ) from exc
 
 
-def bring_app_to_foreground() -> None:
-    """Bring the app to the foreground to ensure dialogs are visible."""
+def bring_dialog_to_front() -> None:
+    """Bring alert dialogs to the front without affecting notification state."""
     if NS_APP is not None:
         try:
-            NS_APP.activate(True)
+            # Only activate for dialogs, not for notifications
+            NS_APP.activateIgnoringOtherApps_(True)
         except Exception:  # pylint: disable=broad-except
-            pass  # Ignore any errors with window management
+            pass
 
 
 # If you get import errors, run with:
@@ -71,10 +73,18 @@ class LLMOutputScrub(rumps.App):
 
     def __init__(self, config_file: Optional[str] = None) -> None:
         super().__init__("📝")
-        self.menu = ["Scrub Clipboard", "Configure", "NLP Stats", "About"]
+        self.menu = ["Scrub Clipboard", "Configuration", "NLP Stats"]
         self.config = ScrubConfig(config_file)
         self._observer: Optional[Any] = None
         self._start_config_watcher()
+
+        # Set app as background app (no dock icon) - this must be done early
+        if NS_APP is not None:
+            try:
+                # NSApplicationActivationPolicyAccessory = 1 (background app, no dock icon)
+                NS_APP.setActivationPolicy_(1)
+            except Exception:  # pylint: disable=broad-except
+                pass
 
     def _start_config_watcher(self) -> None:
         """Start watching the config file for changes."""
@@ -137,7 +147,7 @@ class LLMOutputScrub(rumps.App):
         except (pyperclip.PyperclipException, OSError) as e:
             rumps.notification(title="LLM Output Scrub", subtitle="Error", message=str(e))
 
-    @rumps.clicked("Configure")  # type: ignore[misc]
+    @rumps.clicked("Configuration")  # type: ignore[misc]
     def configure(self, _: Any) -> None:
         """Show configuration dialog."""
         categories = self.config.get_categories()
@@ -155,7 +165,7 @@ class LLMOutputScrub(rumps.App):
                 message += f"  ✗ {cat.replace('_', ' ').title()}\n"
 
         message += "\nEdit the JSON config file to customize replacements."
-        bring_app_to_foreground()
+        bring_dialog_to_front()
         rumps.alert(title="LLM Output Scrub Configuration", message=message)
 
     @rumps.clicked("NLP Stats")  # type: ignore[misc]
@@ -195,25 +205,14 @@ class LLMOutputScrub(rumps.App):
                 message += f"Average confidence: {avg_confidence:.2f}"
 
                 # Show detailed alert dialog instead of notification
-                bring_app_to_foreground()
+                bring_dialog_to_front()
                 rumps.alert(title="📊 NLP Statistics", message=message)
             else:
-                bring_app_to_foreground()
+                bring_dialog_to_front()
                 rumps.alert(title="NLP Stats", message="No dashes processed yet")
         except (ValueError, KeyError, TypeError) as e:
-            bring_app_to_foreground()
+            bring_dialog_to_front()
             rumps.alert(title="NLP Stats Error", message=str(e))
-
-    @rumps.clicked("About")  # type: ignore[misc]
-    def about(self, _: Any) -> None:
-        """Show about dialog."""
-        message = (
-            "A simple macOS app that replaces smart/typographic characters with plain ASCII.\n\n"
-            "Click 'Scrub Clipboard' to process the current clipboard content.\n"
-            "Click 'Configure' to view current settings."
-        )
-        bring_app_to_foreground()
-        rumps.alert(title="LLM Output Scrub", message=message)
 
     def scrub_text(self, text: str) -> str:
         """Replace smart/typographic characters with plain ASCII equivalents."""
