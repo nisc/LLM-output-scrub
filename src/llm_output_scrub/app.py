@@ -15,7 +15,7 @@ import re
 import threading
 import unicodedata
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import pyperclip
 from watchdog.events import FileSystemEventHandler
@@ -89,6 +89,15 @@ class LLMOutputScrub(rumps.App):
                 NS_APP.setActivationPolicy_(1)
             except Exception:  # pylint: disable=broad-except
                 pass
+
+    def __del__(self) -> None:
+        """Cleanup resources when the app is destroyed."""
+        self.cleanup()
+
+    def cleanup(self) -> None:
+        """Clean up resources before app shutdown."""
+        self.cleanup_resources()
+        super().quit()
 
     def _start_config_watcher(self) -> None:
         """Start watching the config file for changes."""
@@ -201,9 +210,42 @@ class LLMOutputScrub(rumps.App):
 
     def _toggle_single_setting(self) -> None:
         """Show all settings in one dialog with option to toggle any of them."""
-        bring_dialog_to_front()
+        while True:
+            bring_dialog_to_front()
 
-        # Create numbered list for selection
+            # Create numbered list for selection
+            all_settings = self._build_settings_list()
+
+            # Build settings display with numbered list
+            settings_text = self._build_settings_display(all_settings)
+
+            # Use rumps.Window for input
+            window = rumps.Window(
+                message=settings_text + '\nEnter numbers to toggle (e.g. "3 5 9"):',
+                title="Configuration",
+                ok="Toggle",
+                cancel="Close",
+                default_text="",
+            )
+
+            response = window.run()
+
+            if response.clicked == 1:  # Toggle clicked
+                action = self._handle_toggle_input(response.text, all_settings)
+                if action == "continue":
+                    continue
+                elif action == "break":
+                    break
+                elif action == "restore_defaults":
+                    self._restore_defaults()
+                    break
+            elif response.clicked == 0:  # Close clicked
+                break
+            else:  # Window closed
+                break
+
+    def _build_settings_list(self) -> List[Tuple[str, str, str, bool]]:
+        """Build the list of all settings for the configuration dialog."""
         all_settings = []
 
         # Add general settings with intuitive descriptions
@@ -239,7 +281,14 @@ class LLMOutputScrub(rumps.App):
                         ("sub_setting", f"{category}_{setting_key}", display_name, current_value)
                     )
 
-        # Build settings display with numbered list
+        return all_settings
+
+    def _build_settings_display(self, all_settings: List[Tuple[str, str, str, bool]]) -> str:
+        """Build the settings display text for the configuration dialog."""
+
+        def get_status_symbol(value: bool) -> str:
+            """Return the appropriate status symbol for a setting."""
+            return "🟢" if value else "🔴"
 
         # Add option 0 for Restore Defaults
         settings_text = "⚪ 0. Restore Defaults\n\n"
@@ -247,10 +296,6 @@ class LLMOutputScrub(rumps.App):
         # Track if we've shown the general settings title
         general_title_shown = False
         category_title_shown = False
-
-        def get_status_symbol(value: bool) -> str:
-            """Return the appropriate status symbol for a setting."""
-            return "🟢" if value else "🔴"
 
         for i, (setting_type, setting_key, setting_name, current_value) in enumerate(all_settings, 1):
             if setting_type == "separator":
@@ -267,132 +312,117 @@ class LLMOutputScrub(rumps.App):
                 # Add the setting line
                 settings_text += f"{get_status_symbol(current_value)} {i}. {setting_name}\n"
 
-        # Use rumps.Window for input
-        window = rumps.Window(
-            message=settings_text + '\nEnter numbers to toggle (e.g. "3 5 9"):',
-            title="Configuration",
-            ok="Toggle",
-            cancel="Close",
-            default_text="",
-        )
+        return settings_text
 
-        response = window.run()
+    def _handle_toggle_input(self, input_text: str, all_settings: List[Tuple[str, str, str, bool]]) -> str:
+        """Handle user input for toggling settings.
 
-        if response.clicked == 1:  # Toggle clicked
-            try:
-                # Parse comma-separated numbers with proper sanitization
-                input_text = response.text.strip()
-                if not input_text:
-                    rumps.alert(title="Invalid Input", message="Please enter at least one number.")
-                    self._toggle_single_setting()
-                    return
+        Returns action: 'continue', 'break', or 'restore_defaults'.
+        """
+        try:
+            # Parse comma-separated numbers with proper sanitization
+            input_text = input_text.strip()
+            if not input_text:
+                rumps.alert(title="Invalid Input", message="Please enter at least one number.")
+                return "continue"
 
-                # Check for single "0" input (Restore Defaults) - must be standalone
-                if input_text.strip() == "0":
-                    self._restore_defaults()
-                    return
+            # Check for single "0" input (Restore Defaults) - must be standalone
+            if input_text.strip() == "0":
+                return "restore_defaults"
 
-                # Split by multiple separators and clean each number
-                # Split by any non-digit character (allows any character as separator)
-                number_strings = re.split(r"[^\d]+", input_text)
-                selections = []
+            # Split by multiple separators and clean each number
+            # Split by any non-digit character (allows any character as separator)
+            number_strings = re.split(r"[^\d]+", input_text)
+            selections = []
 
-                for num_str in number_strings:
-                    if not num_str:  # Skip empty strings
-                        continue
-                    try:
-                        num = int(num_str)
-                        if num == 0:
-                            # 0 can only be used standalone
-                            rumps.alert(
-                                title="Invalid Input",
-                                message="Option 0 (Restore Defaults) must be entered alone, "
-                                "not with other numbers.",
-                            )
-                            self._toggle_single_setting()
-                            return
-                        elif 1 <= num <= len(all_settings):
-                            selections.append(num)
-                        else:
-                            rumps.alert(
-                                title="Invalid Number",
-                                message=f"Number {num} is out of range (1-{len(all_settings)})",
-                            )
-                            self._toggle_single_setting()
-                            return
-                    except ValueError:
-                        rumps.alert(title="Invalid Input", message=f"'{num_str}' is not a valid number")
-                        self._toggle_single_setting()
-                        return
+            for num_str in number_strings:
+                if not num_str:  # Skip empty strings
+                    continue
+                try:
+                    num = int(num_str)
+                    if num == 0:
+                        # 0 can only be used standalone
+                        rumps.alert(
+                            title="Invalid Input",
+                            message="Option 0 (Restore Defaults) must be entered alone, "
+                            "not with other numbers.",
+                        )
+                        return "continue"
+                    elif 1 <= num <= len(all_settings):
+                        selections.append(num)
+                    else:
+                        rumps.alert(
+                            title="Invalid Number",
+                            message=f"Number {num} is out of range (1-{len(all_settings)})",
+                        )
+                        return "continue"
+                except ValueError:
+                    rumps.alert(title="Invalid Input", message=f"'{num_str}' is not a valid number")
+                    return "continue"
 
-                # Remove duplicates while preserving order
-                unique_selections = []
-                for num in selections:
-                    if num not in unique_selections:
-                        unique_selections.append(num)
+            # Remove duplicates while preserving order
+            unique_selections = []
+            for num in selections:
+                if num not in unique_selections:
+                    unique_selections.append(num)
 
-                if not unique_selections:
-                    rumps.alert(title="No Valid Selections", message="No valid settings were selected.")
-                    self._toggle_single_setting()
-                    return
+            if not unique_selections:
+                rumps.alert(title="No Valid Selections", message="No valid settings were selected.")
+                return "continue"
 
-                # Toggle all selected settings
-                toggled_settings = []
-                for selection in unique_selections:
-                    setting_type, setting_key, setting_name, current_value = all_settings[selection - 1]
+            # Toggle all selected settings
+            toggled_settings = []
+            for selection in unique_selections:
+                setting_type, setting_key, setting_name, current_value = all_settings[selection - 1]
 
-                    # Toggle the setting
-                    if setting_type == "general":
-                        self.config.set_general_setting(setting_key, not current_value)
-                    elif setting_type == "sub_setting":
-                        # For sub-settings, we need to find the category name in the setting_key
-                        # The setting_key format is: "category_setting_name"
-                        # We need to find the category by looking at the categories list
-                        categories = self.config.get_categories()
-                        category = ""
-                        setting = ""
+                # Toggle the setting
+                if setting_type == "general":
+                    self.config.set_general_setting(setting_key, not current_value)
+                elif setting_type == "sub_setting":
+                    # For sub-settings, we need to find the category name in the setting_key
+                    # The setting_key format is: "category_setting_name"
+                    # We need to find the category by looking at the categories list
+                    categories = self.config.get_categories()
+                    category = ""
+                    setting = ""
 
-                        for cat in categories:
-                            if setting_key.startswith(f"{cat}_"):
-                                category = cat
-                                setting = setting_key[len(cat) + 1 :]
-                                break
+                    for cat in categories:
+                        if setting_key.startswith(f"{cat}_"):
+                            category = cat
+                            setting = setting_key[len(cat) + 1 :]
+                            break
 
-                        if category and setting:
-                            self.config.set_sub_setting(category, setting, not current_value)
-                    else:  # category
-                        self.config.set_category_enabled(setting_key, not current_value)
+                    if category and setting:
+                        self.config.set_sub_setting(category, setting, not current_value)
+                else:  # category
+                    self.config.set_category_enabled(setting_key, not current_value)
 
-                    new_status = "ON" if not current_value else "OFF"
-                    toggled_settings.append(f"{setting_name} ({new_status})")
+                new_status = "ON" if not current_value else "OFF"
+                toggled_settings.append(f"{setting_name} ({new_status})")
 
-                # Show notification for all toggled settings
-                if len(toggled_settings) == 1:
-                    rumps.notification(
-                        title="Setting Updated",
-                        subtitle=toggled_settings[0],
-                        message="Configuration saved.",
-                    )
-                else:
-                    rumps.notification(
-                        title="Settings Updated",
-                        subtitle=f"{len(toggled_settings)} settings toggled",
-                        message="Configuration saved.",
-                    )
+            # Show notification for all toggled settings
+            if len(toggled_settings) == 1:
+                rumps.notification(
+                    title="Setting Updated",
+                    subtitle=toggled_settings[0],
+                    message="Configuration saved.",
+                )
+            else:
+                rumps.notification(
+                    title="Settings Updated",
+                    subtitle=f"{len(toggled_settings)} settings toggled",
+                    message="Configuration saved.",
+                )
 
-                # Update menu items if debug_mode was toggled
-                self._update_menu_items()
+            # Update menu items if debug_mode was toggled
+            self._update_menu_items()
 
-                # Stay in the toggle menu by calling it again
-                self._toggle_single_setting()
+            # Stay in the toggle menu
+            return "continue"
 
-            except (ValueError, TypeError, OSError) as e:
-                rumps.alert(title="Error", message=f"An error occurred: {str(e)}")
-                self._toggle_single_setting()
-        elif response.clicked == 0:  # Close clicked
-            # Return to main menu (do nothing, just exit)
-            pass
-        # If window is closed (response.clicked == -1), return to main menu
+        except (ValueError, TypeError, OSError) as e:
+            rumps.alert(title="Error", message=f"An error occurred: {str(e)}")
+            return "continue"
 
     def _restore_defaults(self) -> None:
         """Restore all configuration settings to their default values."""
@@ -412,8 +442,38 @@ class LLMOutputScrub(rumps.App):
                 subtitle="Defaults Restored",
                 message="All settings have been reset to defaults.",
             )
-            # Return to main configuration dialog
-            self._toggle_single_setting()
+            # Dialog will return to main configuration dialog via the main loop
+
+    def _normalize_whitespace(self, text: str) -> str:
+        """Normalize whitespace within text while preserving structure."""
+        # Normalize whitespace within each line, preserve empty lines, trim excessive empty lines
+        lines = text.split("\n")
+        normalized_lines = []
+        for line in lines:
+            if line.strip():
+                normalized_lines.append(" ".join(line.split()))
+            else:
+                normalized_lines.append("")
+
+        # Trim multiple consecutive empty lines to single empty lines
+        trimmed_lines: List[str] = []
+        prev_was_empty = False
+        for line in normalized_lines:
+            if line.strip():  # Non-empty line
+                trimmed_lines.append(line)
+                prev_was_empty = False
+            else:  # Empty line
+                if not prev_was_empty:  # Only add if previous wasn't empty
+                    trimmed_lines.append("")
+                prev_was_empty = True
+
+        # Remove empty lines at the beginning and end
+        while trimmed_lines and not trimmed_lines[0].strip():
+            trimmed_lines.pop(0)
+        while trimmed_lines and not trimmed_lines[-1].strip():
+            trimmed_lines.pop()
+
+        return "\n".join(trimmed_lines)
 
     def scrub_text(self, text: str) -> str:
         """Replace smart/typographic characters with plain ASCII equivalents."""
@@ -457,36 +517,27 @@ class LLMOutputScrub(rumps.App):
 
         # Handle whitespace normalization (final formatting step)
         if self.config.config["general"].get("normalize_whitespace", False):
-            # Normalize whitespace within each line, preserve empty lines, trim excessive empty lines
-            lines = scrubbed_text.split("\n")
-            normalized_lines = []
-            for line in lines:
-                if line.strip():
-                    normalized_lines.append(" ".join(line.split()))
-                else:
-                    normalized_lines.append("")
-
-            # Trim multiple consecutive empty lines to single empty lines
-            trimmed_lines: List[str] = []
-            prev_was_empty = False
-            for line in normalized_lines:
-                if line.strip():  # Non-empty line
-                    trimmed_lines.append(line)
-                    prev_was_empty = False
-                else:  # Empty line
-                    if not prev_was_empty:  # Only add if previous wasn't empty
-                        trimmed_lines.append("")
-                    prev_was_empty = True
-
-            # Remove empty lines at the beginning and end
-            while trimmed_lines and not trimmed_lines[0].strip():
-                trimmed_lines.pop(0)
-            while trimmed_lines and not trimmed_lines[-1].strip():
-                trimmed_lines.pop()
-
-            scrubbed_text = "\n".join(trimmed_lines)
+            scrubbed_text = self._normalize_whitespace(scrubbed_text)
 
         return scrubbed_text
+
+    def cleanup_resources(self) -> None:
+        """Clean up resources before shutdown."""
+        # Stop the file observer
+        if self._observer is not None:
+            self._observer.stop()
+            # Wait for observer to stop (with timeout)
+            if self._observer.is_alive():
+                self._observer.join(timeout=1.0)
+            self._observer = None
+
+        # Clean up NLP processor to free memory
+        try:
+            from .nlp import cleanup_nlp_processor
+
+            cleanup_nlp_processor()
+        except ImportError:
+            pass  # NLP module not available
 
 
 def main() -> None:
