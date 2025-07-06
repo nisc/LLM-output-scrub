@@ -53,7 +53,6 @@ class ScrubConfig:
                     "sub_settings": {
                         "enable_contextual_mode": {
                             "display_name": "Em Dashes — Contextual/NLP mode",
-                            "description": "Use spaCy NLP for intelligent EM dash replacement",
                         }
                     },
                 },
@@ -173,7 +172,6 @@ class ScrubConfig:
             if "sub_settings" in category_config:
                 for sub_setting_config in category_config["sub_settings"].values():
                     sub_setting_config.pop("display_name", None)
-                    sub_setting_config.pop("description", None)
 
         return clean_config
 
@@ -185,12 +183,18 @@ class ScrubConfig:
             else:
                 default[key] = value
 
+    def _get_default_value(self, category: str, setting: str) -> bool:
+        """Get the default value for a setting from the default config."""
+        default_config = self._load_default_config()
+        return bool(default_config["character_replacements"].get(category, {}).get(setting, False))
+
     def get_all_replacements(self) -> Dict[str, str]:
         """Get all enabled character replacements as a flat dictionary."""
         replacements = {}
 
-        for _, category in self.config["character_replacements"].items():
-            if category.get("enabled", True):
+        for category_name, category in self.config["character_replacements"].items():
+            default_enabled = self._get_default_value(category_name, "enabled")
+            if category.get("enabled", default_enabled):
                 # Skip EM dash replacements when contextual mode is enabled
                 if category.get("enable_contextual_mode", False):
                     # Don't include EM dash in simple replacements when using contextual mode
@@ -210,7 +214,8 @@ class ScrubConfig:
 
     def is_category_enabled(self, category: str) -> bool:
         """Check if a category is enabled."""
-        value = self.config["character_replacements"].get(category, {}).get("enabled", True)
+        default_enabled = self._get_default_value(category, "enabled")
+        value = self.config["character_replacements"].get(category, {}).get("enabled", default_enabled)
         return bool(value)
 
     def is_em_dash_enabled(self) -> bool:
@@ -221,8 +226,11 @@ class ScrubConfig:
         """Check if EM dash replacement should use contextual NLP processing."""
         if not self.is_em_dash_enabled():
             return False
+        default_contextual = self._get_default_value("em_dashes", "enable_contextual_mode")
         return bool(
-            self.config["character_replacements"].get("em_dashes", {}).get("enable_contextual_mode", True)
+            self.config["character_replacements"]
+            .get("em_dashes", {})
+            .get("enable_contextual_mode", default_contextual)
         )
 
     def set_em_dash_enabled(self, enabled: bool) -> None:
