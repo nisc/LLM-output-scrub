@@ -177,9 +177,10 @@ class LLMOutputScrub(rumps.App):
 
         # Add categories and their sub-settings
         categories = self.config.get_categories()
+
         for category in categories:
             enabled = self.config.is_category_enabled(category)
-            category_name = category.replace("_", " ").title()
+            category_name = self.config.get_category_display_name(category)
             all_settings.append(("category", category, category_name, enabled))
 
             # Add sub-settings if category is enabled
@@ -212,7 +213,7 @@ class LLMOutputScrub(rumps.App):
                     settings_text += "GENERAL SETTINGS:\n"
                     general_title_shown = True
                 elif setting_type == "category" and not category_title_shown:
-                    settings_text += "SPECIFIC REPLACEMENTS:\n"
+                    settings_text += "REPLACEMENTS:\n"
                     category_title_shown = True
 
                 # Add the setting line
