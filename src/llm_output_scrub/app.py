@@ -68,7 +68,7 @@ class LLMOutputScrub(rumps.App):
     """macOS menu bar app that scrubs smart/typographic characters from LLM output."""
 
     def __init__(self, config_file: Optional[str] = None) -> None:
-        super().__init__("📝")
+        super().__init__("🤖")
         self.menu = ["Scrub Clipboard", "Configuration", "NLP Stats"]
         self.config = ScrubConfig(config_file)
         self._observer: Optional[Any] = None

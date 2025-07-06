@@ -76,7 +76,7 @@ PYTHONPATH=src python src/run_app.py
 ## 📖 Usage
 
 1. **Copy LLM output** with smart quotes or typographic characters
-2. **Click the scrubber icon** 📝 in your menu bar
+2. **Click the robot icon** 🤖 in your menu bar
 3. **Select "Scrub Clipboard"** from the menu
 4. **Paste** anywhere - now with plain ASCII characters!
 
@@ -108,7 +108,7 @@ The system detects and handles these EM dash contexts:
 
 All settings can be managed via the app's menu:
 
-- Click the menu bar icon 📝 and select "Configuration"
+- Click the menu bar icon 🤖 and select "Configuration"
 - Toggle any setting or sub-setting by number
 - Restore defaults with option 0
 
