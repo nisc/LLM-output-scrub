@@ -6,5 +6,44 @@
   "python.formatting.provider": "black",
   "python.linting.flake8Enabled": true,
   "python.linting.enabled": true,
-  "python.defaultInterpreterPath": "./.venv/bin/python"
+  "python.defaultInterpreterPath": "./.venv/bin/python",
+  "python.linting.flake8Args": [
+    "--max-line-length=110",
+    "--extend-ignore=E203,W503",
+    "--exclude=.git,__pycache__,.venv,build,dist,*.egg-info,typings"
+  ],
+  "python.linting.pylintEnabled": false,
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": [
+    "--config-file=mypy.ini"
+  ],
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "isort.args": [
+    "--profile",
+    "black"
+  ],
+  "isort.check": true,
+  "isort.workspaceRoots": [
+    "."
+  ],
+  "isort.interpreter": [
+    "./.venv/bin/python"
+  ],
+  "isort.importStrategy": "fromEnvironment",
+  "isort.severity": {
+    "W": "Warning",
+    "E": "Error"
+  },
+  "isort.showNotification": "onError",
+  "isort.serverEnabled": true,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  }
 }

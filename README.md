@@ -11,21 +11,22 @@ See [TODO.md](TODO.md) for planned improvements.
 [![macOS](https://img.shields.io/badge/macOS-10.12+-green.svg)](https://www.apple.com/macos/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Linting: flake8](https://img.shields.io/badge/linting-flake8-yellow.svg)](https://flake8.pycqa.org/)
+[![Type checking: mypy](https://img.shields.io/badge/type%20checking-mypy-blue.svg)](https://mypy.readthedocs.io/)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 ## ✨ Features
 
-- 📱 **Menu Bar**: Runs as a menu bar app
-- 🧠 **NLP Processing**: Uses spaCy for context detection
-- ⚙️ **Configurable**: All character replacements can be customized via JSON config
-  - 🔄 **Smart Quotes**: Replaces `"` `"` `'` `'` with straight quotes `"` `'`
-  - ➖ **Smart Dashes**: Converts em dashes `—` and en dashes `–` to hyphens `-` with context-aware logic
-  - ⚡ **Ellipsis**: Replaces `…` with three dots `...`
-  - 🎯 **Symbols**: Converts typographic symbols to ASCII equivalents
-  - 🌍 **Unicode**: Handles accented characters by removing diacritics
-  - 🔢 **Various Others**: Supports trademarks, fractions, mathematical symbols, currency, units, and more
-- 🔔 **Notifications**: Shows success/error notifications
-- 📊 **NLP Stats**: Built-in performance monitoring and statistics
+- **Menu Bar**: Runs as a menu bar app
+- **NLP Processing**: Uses spaCy for context detection
+- **Configurable**: All character replacements can be customized via JSON config
+  - Smart Quotes: Replaces `"` `"` `'` `'` with straight quotes `"` `'`
+  - Smart Dashes: Converts em dashes `—` and en dashes `–` to hyphens `-` with context-aware logic
+  - Ellipsis: Replaces `…` with three dots `...`
+  - Symbols: Converts typographic symbols to ASCII equivalents
+  - Unicode: Handles accented characters by removing diacritics
+  - Various Others: Supports trademarks, fractions, mathematical symbols, currency, units, and more
+- **Notifications**: Shows success/error notifications
+- **NLP Stats**: Built-in performance monitoring and statistics
 
 ## 🚀 Quick Start
 
@@ -178,6 +179,7 @@ llm_output_scrub/
 │   ├── integration-test.sh   # Integration test script
 │   └── input.txt             # Test input data
 ├── assets/                   # App assets (icons, spaCy model)
+├── typings/                  # Type stubs (e.g., rumps.pyi)
 ├── pyproject.toml            # Project configuration & dependencies
 ├── setup.py                  # py2app build configuration
 ├── Makefile                  # Build commands

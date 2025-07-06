@@ -5,8 +5,13 @@ Run directly: python3 app.py
 Or build with: python3 setup.py py2app
 """
 
-import re
 import sys
+
+# Check if we're on macOS
+if sys.platform != "darwin":
+    raise ImportError("This app is designed for macOS only.")  # type: ignore[unreachable]
+
+import re
 import threading
 import unicodedata
 from pathlib import Path
@@ -28,10 +33,7 @@ try:
 except ImportError:
     NS_APP = None
 
-# Check if we're on macOS
-if sys.platform != "darwin":
-    raise ImportError("This app is designed for macOS only.")
-
+# Import rumps (macOS-specific)
 try:
     import rumps  # pylint: disable=import-error
 except ImportError as exc:
@@ -66,6 +68,8 @@ class ConfigFileChangeHandler(FileSystemEventHandler):
 
 class LLMOutputScrub(rumps.App):
     """macOS menu bar app that scrubs smart/typographic characters from LLM output."""
+
+    config: "ScrubConfig"
 
     def __init__(self, config_file: Optional[str] = None) -> None:
         super().__init__("🤖")
@@ -102,7 +106,7 @@ class LLMOutputScrub(rumps.App):
             title="LLM Output Scrub", subtitle="Config Reloaded", message="Configuration reloaded from file."
         )
 
-    @rumps.clicked("Scrub Clipboard")  # type: ignore[misc]
+    @rumps.clicked("Scrub Clipboard")
     def scrub_llm_output(self, _: Any) -> None:
         """Scrub the clipboard content by replacing smart quotes and other typographic characters."""
         try:
@@ -143,7 +147,7 @@ class LLMOutputScrub(rumps.App):
         except (pyperclip.PyperclipException, OSError) as e:
             rumps.notification(title="LLM Output Scrub", subtitle="Error", message=str(e))
 
-    @rumps.clicked("Configuration")  # type: ignore[misc]
+    @rumps.clicked("Configuration")
     def configure(self, _: Any) -> None:
         """Show configuration dialog."""
         self._show_config_dialog()
@@ -363,7 +367,7 @@ class LLMOutputScrub(rumps.App):
             # Return to main configuration dialog
             self._toggle_single_setting()
 
-    @rumps.clicked("NLP Stats")  # type: ignore[misc]
+    @rumps.clicked("NLP Stats")
     def show_nlp_stats(self, _: Any) -> None:
         """Show NLP processing statistics."""
         try:
