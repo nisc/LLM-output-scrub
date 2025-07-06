@@ -22,7 +22,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
 from llm_output_scrub.config_manager import ScrubConfig  # pylint: disable=import-error
-from llm_output_scrub.nlp import get_dash_replacement_nlp, get_nlp_processor  # pylint: disable=import-error
+from llm_output_scrub.nlp import get_dash_replacement_nlp, get_nlp_stats  # pylint: disable=import-error
 
 # macOS-specific imports for window management
 try:
@@ -73,10 +73,14 @@ class LLMOutputScrub(rumps.App):
 
     def __init__(self, config_file: Optional[str] = None) -> None:
         super().__init__("🤖")
-        self.menu = ["Scrub Clipboard", "Configuration", "NLP Stats"]
         self.config = ScrubConfig(config_file)
         self._observer: Optional[Any] = None
         self._start_config_watcher()
+
+        # Set up initial menu items
+        self.menu = ["Scrub Clipboard", "Configuration"]  # type: ignore[attr-defined]
+        # Use the update method to properly handle debug mode menu items
+        self._update_menu_items()
 
         # Set app as background app (no dock icon) - this must be done early
         if NS_APP is not None:
@@ -102,9 +106,48 @@ class LLMOutputScrub(rumps.App):
     def reload_config(self) -> None:
         """Reload configuration from file."""
         self.config.load_config()
+        self._update_menu_items()
         rumps.notification(
             title="LLM Output Scrub", subtitle="Config Reloaded", message="Configuration reloaded from file."
         )
+
+    def _update_menu_items(self) -> None:
+        """Update menu items based on current configuration."""
+        # Check if NLP Stats should be shown
+        should_show_nlp_stats = self.config.get_general_setting("debug_mode")
+
+        # Add NLP Stats if debug mode is on and it's not already there
+        if should_show_nlp_stats and "NLP Stats" not in self.menu:  # type: ignore[attr-defined]
+            # Create menu item with callback
+            nlp_stats_item = rumps.MenuItem(  # type: ignore[attr-defined]
+                "NLP Stats", callback=self.show_nlp_stats
+            )
+            # Insert before Quit button if it exists
+            if "Quit" in self.menu:  # type: ignore[attr-defined]
+                self.menu.insert_before("Quit", nlp_stats_item)  # type: ignore[attr-defined]
+            else:
+                self.menu.add(nlp_stats_item)  # type: ignore[attr-defined]
+
+        # Remove NLP Stats if debug mode is off and it's there
+        elif not should_show_nlp_stats and "NLP Stats" in self.menu:  # type: ignore[attr-defined]
+            del self.menu["NLP Stats"]  # type: ignore[attr-defined,arg-type]
+
+    def show_nlp_stats(self, _: Any) -> None:
+        """Show NLP statistics dialog."""
+        # Only show if debug mode is enabled
+        if not self.config.get_general_setting("debug_mode"):
+            return
+
+        # Get NLP statistics
+        nlp_stats = get_nlp_stats()  # type: ignore[attr-defined]
+
+        # Format the statistics for display
+        stats_text = "NLP Statistics:\n\n"
+        for key, value in nlp_stats.items():
+            stats_text += f"{key}: {value}\n"
+
+        # Show in a dialog
+        rumps.alert(title="NLP Statistics", message=stats_text)
 
     @rumps.clicked("Scrub Clipboard")
     def scrub_llm_output(self, _: Any) -> None:
@@ -170,6 +213,7 @@ class LLMOutputScrub(rumps.App):
             "remove_combining_chars": "Remove Accent Marks (e + accent→e)",
             "remove_non_ascii": "Remove All Non-ASCII",
             "normalize_whitespace": "Clean Up Extra Spacing",
+            "debug_mode": "Enable Debug Mode (NLP Statistics Menu)",
         }
 
         for setting, value in general_settings.items():
@@ -336,6 +380,9 @@ class LLMOutputScrub(rumps.App):
                         message="Configuration saved.",
                     )
 
+                # Update menu items if debug_mode was toggled
+                self._update_menu_items()
+
                 # Stay in the toggle menu by calling it again
                 self._toggle_single_setting()
 
@@ -359,6 +406,7 @@ class LLMOutputScrub(rumps.App):
         if confirm == 1:
             # Reset to defaults using the config manager method
             self.config.reset_to_defaults()
+            self._update_menu_items()
             rumps.notification(
                 title="LLM Output Scrub",
                 subtitle="Defaults Restored",
@@ -366,52 +414,6 @@ class LLMOutputScrub(rumps.App):
             )
             # Return to main configuration dialog
             self._toggle_single_setting()
-
-    @rumps.clicked("NLP Stats")
-    def show_nlp_stats(self, _: Any) -> None:
-        """Show NLP processing statistics."""
-        try:
-            processor = get_nlp_processor()
-            processor.print_stats()
-
-            # Get detailed statistics
-            total_dashes = processor.stats.get("total_dashes", 0)
-
-            if total_dashes > 0:
-                spacy_decisions = processor.stats.get("spacy_decisions", 0)
-                fallback_decisions = processor.stats.get("fallback_decisions", 0)
-                spacy_pct = spacy_decisions / total_dashes * 100
-                fallback_pct = fallback_decisions / total_dashes * 100
-
-                # Calculate average confidence
-                confidence_scores = processor.stats.get("confidence_scores", [1])
-                avg_confidence = sum(confidence_scores) / len(confidence_scores)
-
-                # Build detailed message for alert dialog
-                message = f"Total dashes processed: {total_dashes}\n"
-                message += f"High-confidence decisions: {spacy_decisions} ({spacy_pct:.1f}%)\n"
-                message += f"Fallback decisions: {fallback_decisions} ({fallback_pct:.1f}%)\n\n"
-
-                # Add context types
-                context_types = processor.stats.get("context_types", {})
-                if context_types:
-                    message += "Context types:\n"
-                    for context_type, count in context_types.items():
-                        pct = count / total_dashes * 100
-                        message += f"  {context_type}: {count} ({pct:.1f}%)\n"
-                    message += "\n"
-
-                message += f"Average confidence: {avg_confidence:.2f}"
-
-                # Show detailed alert dialog instead of notification
-                bring_dialog_to_front()
-                rumps.alert(title="📊 NLP Statistics", message=message)
-            else:
-                bring_dialog_to_front()
-                rumps.alert(title="NLP Stats", message="No dashes processed yet")
-        except (ValueError, KeyError, TypeError) as e:
-            bring_dialog_to_front()
-            rumps.alert(title="NLP Stats Error", message=str(e))
 
     def scrub_text(self, text: str) -> str:
         """Replace smart/typographic characters with plain ASCII equivalents."""

@@ -31,6 +31,7 @@ class ScrubConfig:
                 "remove_combining_chars": False,
                 "remove_non_ascii": False,
                 "normalize_whitespace": False,
+                "debug_mode": False,
             },
             "character_replacements": {
                 "smart_quotes": {
@@ -308,3 +309,10 @@ class ScrubConfig:
         if category in self.config["character_replacements"]:
             self.config["character_replacements"][category][setting] = value
             self.save_config()
+
+    def get_menu_items(self) -> List[str]:
+        """Get the list of menu items based on current configuration."""
+        menu_items = ["Scrub Clipboard", "Configuration"]
+        if self.get_general_setting("debug_mode"):
+            menu_items.append("NLP Stats")
+        return menu_items

@@ -123,6 +123,7 @@ A JSON config file is also stored at `~/.llm_output_scrub/config.json` for advan
 | Remove Accent Marks    | Removes combining marks (e + ́ → e)                         |
 | Remove All Non-ASCII   | Removes any character not in standard ASCII                 |
 | Clean Up Extra Spacing | Normalizes whitespace, trims excess, removes extra blank lines |
+| Enable Debug Mode      | Shows "NLP Stats" menu item for performance monitoring      |
 
 ### Character Replacement Categories
 

@@ -202,6 +202,40 @@ class TestScrubConfig(unittest.TestCase):
         # Test with None category name (should return False as default)
         self.assertFalse(self.config.is_category_enabled(None))  # type: ignore
 
+    def test_debug_mode_setting(self) -> None:
+        """Test that debug_mode setting works correctly."""
+        # Debug mode should be False by default
+        self.assertFalse(self.config.get_general_setting("debug_mode"))
+
+        # Enable debug mode
+        self.config.set_general_setting("debug_mode", True)
+        self.assertTrue(self.config.get_general_setting("debug_mode"))
+
+        # Disable debug mode
+        self.config.set_general_setting("debug_mode", False)
+        self.assertFalse(self.config.get_general_setting("debug_mode"))
+
+        # Test persistence
+        self.config.set_general_setting("debug_mode", True)
+        new_config = ScrubConfig(self.config_file)
+        self.assertTrue(new_config.get_general_setting("debug_mode"))
+
+    def test_get_menu_items(self) -> None:
+        """Test that get_menu_items returns correct menu items based on debug mode."""
+        # Debug mode off by default
+        menu_items = self.config.get_menu_items()
+        self.assertEqual(menu_items, ["Scrub Clipboard", "Configuration"])
+
+        # Enable debug mode
+        self.config.set_general_setting("debug_mode", True)
+        menu_items = self.config.get_menu_items()
+        self.assertEqual(menu_items, ["Scrub Clipboard", "Configuration", "NLP Stats"])
+
+        # Disable debug mode
+        self.config.set_general_setting("debug_mode", False)
+        menu_items = self.config.get_menu_items()
+        self.assertEqual(menu_items, ["Scrub Clipboard", "Configuration"])
+
 
 class TestLLMOutputScrub(unittest.TestCase):
     """Test cases for LLMOutputScrub class."""

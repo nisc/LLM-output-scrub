@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import spacy
 
+__all__ = ["get_dash_replacement_nlp", "get_nlp_processor", "get_nlp_stats"]
+
 
 def load_spacy_model() -> spacy.language.Language:
     """Load spaCy model, trying bundled path first for standalone app."""
@@ -545,3 +547,9 @@ def get_dash_replacement_nlp(text: str, position: int) -> Tuple[str, int]:
         # Always return ', ' (comma + single space), never a space before the comma
         return ", ", end
     return replacement, position + 1
+
+
+def get_nlp_stats() -> Dict[str, Any]:
+    """Get NLP processing statistics."""
+    processor = get_nlp_processor()
+    return processor.stats.copy()
