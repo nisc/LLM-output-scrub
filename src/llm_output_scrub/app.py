@@ -297,9 +297,21 @@ class LLMOutputScrub(rumps.App):
                     if setting_type == "general":
                         self.config.set_general_setting(setting_key, not current_value)
                     elif setting_type == "sub_setting":
-                        category, setting = setting_key.split("_", 1)
-                        self.config.set_sub_setting(category, setting, not current_value)
-                        self.config.load_config()
+                        # For sub-settings, we need to find the category name in the setting_key
+                        # The setting_key format is: "category_setting_name"
+                        # We need to find the category by looking at the categories list
+                        categories = self.config.get_categories()
+                        category = ""
+                        setting = ""
+
+                        for cat in categories:
+                            if setting_key.startswith(f"{cat}_"):
+                                category = cat
+                                setting = setting_key[len(cat) + 1 :]
+                                break
+
+                        if category and setting:
+                            self.config.set_sub_setting(category, setting, not current_value)
                     else:  # category
                         self.config.set_category_enabled(setting_key, not current_value)
 

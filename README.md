@@ -5,10 +5,13 @@ LLMs often ignore instructions to avoid smart quotes, EM/EN dashes, and other sy
 See [TODO.md](TODO.md) for planned improvements.
 
 
+[![CI](https://github.com/nisc/LLM-output-scrub/actions/workflows/ci.yml/badge.svg)](https://github.com/nisc/LLM-output-scrub/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![macOS](https://img.shields.io/badge/macOS-10.12+-green.svg)](https://www.apple.com/macos/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-41%20passed-brightgreen.svg)](https://github.com/nisc/LLM-output-scrub)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Linting: flake8](https://img.shields.io/badge/linting-flake8-yellow.svg)](https://flake8.pycqa.org/)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
 ## ✨ Features
 
@@ -103,47 +106,40 @@ The system detects and handles these EM dash contexts:
 
 ## ⚙️ Configuration
 
-The app uses a JSON configuration file located at `~/.llm_output_scrub/config.json` that allows you to
-customize all character replacements. The configuration includes:
+All settings can be managed via the app's menu:
+
+- Click the menu bar icon 📝 and select "Configuration"
+- Toggle any setting or sub-setting by number
+- Restore defaults with option 0
+
+A JSON config file is also stored at `~/.llm_output_scrub/config.json` for advanced/manual editing.
+
+### General Settings
+
+| Setting                | Effect                                                      |
+|------------------------|-------------------------------------------------------------|
+| Decompose Unicode      | Converts composed chars (é) to base + accent (e + ́)        |
+| Remove Accent Marks    | Removes combining marks (e + ́ → e)                         |
+| Remove All Non-ASCII   | Removes any character not in standard ASCII                 |
+| Clean Up Extra Spacing | Normalizes whitespace, trims excess, removes extra blank lines |
 
 ### Character Replacement Categories
 
-- **Smart Quotes**: `"` `"` `'` `'` → `"` `'`
-- **Dashes**: EN dashes `–` → `-` (simple replacement)
-- **Ellipsis**: `…` → `...`
-- **Angle Quotes**: `‹` `›` `«` `»` → `<` `>` `<<` `>>`
-- **Trademarks**: `™` `®` → `(TM)` `(R)`
-- **Mathematical**: `≤` `≥` `≠` `≈` `±` → `<=` `>=` `!=` `~` `+/-`
-- **Fractions**: `¼` `½` `¾` → `1/4` `1/2` `3/4`
-- **Footnotes**: `†` `‡` → `*` `**`
-- **Units**: `×` `÷` `‰` `‱` → `*` `/` ` per thousand` ` per ten thousand`
-- **Currency**: `€` `£` `¥` `¢` → `EUR` `GBP` `JPY` `cents`
+| Category      | Replacement                                    |
+|---------------|------------------------------------------------|
+| Smart Quotes  | `"` `"` `'` `'` → `"` `'`                     |
+| Em Dashes     | `—` → `-` (context-aware, see below)          |
+| En Dashes     | `–` → `-`                                     |
+| Ellipsis      | `…` → `...`                                   |
+| Angle Quotes  | `‹` `›` `«` `»` → `<` `>` `<<` `>>`           |
+| Trademarks    | `™` `®` → `(TM)` `(R)`                        |
+| Mathematical  | `≤` `≥` `≠` `≈` `±` → `<=` `>=` `!=` `~` `+/-` |
+| Fractions     | `¼` `½` `¾` → `1/4` `1/2` `3/4`              |
+| Footnotes     | `†` `‡` → `*` `**`                            |
+| Units         | `×` `÷` `‰` `‱` → `*` `/` ` per thousand` ` per ten thousand` |
+| Currency      | `€` `£` `¥` `¢` → `EUR` `GBP` `JPY` `cents`  |
 
-### Configuration File Structure
-
-```json
-{
-  "general": {
-    "normalize_unicode": true,
-    "normalize_whitespace": true,
-    "remove_combining_chars": false,
-    "remove_non_ascii": false
-  },
-  "character_replacements": {
-    "smart_quotes": {
-      "enabled": true,
-      "replacements": {
-        "\u201c": "\"",
-        "\u201d": "\"",
-        "\u2018": "'",
-        "\u2019": "'"
-      }
-    }
-  }
-}
-```
-
-Each category can be enabled/disabled independently, and you can add custom replacements to any category.
+**Em Dashes — Contextual/NLP mode**: When enabled (default), EM dashes are replaced using spaCy NLP for context-aware output. When off, a simple hyphen is used. Toggle this in the menu.
 
 ## 🛠️ Development and Testing
 

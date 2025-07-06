@@ -6,7 +6,7 @@ Configuration for LLM Output Scrub character replacements.
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class ScrubConfig:
@@ -297,8 +297,10 @@ class ScrubConfig:
 
     def _get_sub_setting_value(self, category: str, setting: str) -> bool:
         """Get the current value of a sub-setting."""
-        # Get the value from the actual config
-        return bool(self.config["character_replacements"].get(category, {}).get(setting, False))
+        # Get the value from the actual config at the category level
+        # Sub-settings are stored directly in the category config, not in a sub_settings object
+        default_value = self._get_default_value(category, setting)
+        return bool(self.config["character_replacements"].get(category, {}).get(setting, default_value))
 
     def set_sub_setting(self, category: str, setting: str, value: bool) -> None:
         """Set a sub-setting for a category."""

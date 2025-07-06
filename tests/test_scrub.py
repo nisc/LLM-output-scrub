@@ -188,17 +188,17 @@ class TestScrubConfig(unittest.TestCase):
 
     def test_category_validation(self) -> None:
         """Test validation of category names and operations."""
-        # Test with non-existent category (should return True as default)
-        self.assertTrue(self.config.is_category_enabled("non_existent_category"))
+        # Test with non-existent category (should return False as default)
+        self.assertFalse(self.config.is_category_enabled("non_existent_category"))
 
         # Test setting non-existent category (should not crash)
         self.config.set_category_enabled("non_existent_category", True)
 
-        # Test with empty category name (should return True as default)
-        self.assertTrue(self.config.is_category_enabled(""))
+        # Test with empty category name (should return False as default)
+        self.assertFalse(self.config.is_category_enabled(""))
 
-        # Test with None category name (should return True as default)
-        self.assertTrue(self.config.is_category_enabled(None))  # type: ignore
+        # Test with None category name (should return False as default)
+        self.assertFalse(self.config.is_category_enabled(None))  # type: ignore
 
 
 class TestLLMOutputScrub(unittest.TestCase):
