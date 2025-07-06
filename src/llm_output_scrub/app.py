@@ -5,6 +5,7 @@ Run directly: python3 app.py
 Or build with: python3 setup.py py2app
 """
 
+import re
 import sys
 import threading
 import unicodedata
@@ -47,11 +48,6 @@ def bring_dialog_to_front() -> None:
             NS_APP.activateIgnoringOtherApps_(True)
         except Exception:  # pylint: disable=broad-except
             pass
-
-
-# If you get import errors, run with:
-# python -m llm_output_scrub.app
-# from the src/ directory, or set your PYTHONPATH accordingly.
 
 
 class ConfigFileChangeHandler(FileSystemEventHandler):
@@ -150,23 +146,209 @@ class LLMOutputScrub(rumps.App):
     @rumps.clicked("Configuration")  # type: ignore[misc]
     def configure(self, _: Any) -> None:
         """Show configuration dialog."""
-        categories = self.config.get_categories()
-        enabled_categories = [cat for cat in categories if self.config.is_category_enabled(cat)]
-        disabled_categories = [cat for cat in categories if not self.config.is_category_enabled(cat)]
+        self._show_config_dialog()
 
-        message = f"Configuration file: {self.config.get_config_path()}\n\n"
-        message += "Enabled categories:\n"
-        for cat in enabled_categories:
-            message += f"  ✓ {cat.replace('_', ' ').title()}\n"
+    def _show_config_dialog(self) -> None:
+        """Show the toggle settings menu directly as the main configuration dialog."""
+        self._toggle_single_setting()
 
-        if disabled_categories:
-            message += "\nDisabled categories:\n"
-            for cat in disabled_categories:
-                message += f"  ✗ {cat.replace('_', ' ').title()}\n"
-
-        message += "\nEdit the JSON config file to customize replacements."
+    def _toggle_single_setting(self) -> None:
+        """Show all settings in one dialog with option to toggle any of them."""
         bring_dialog_to_front()
-        rumps.alert(title="LLM Output Scrub Configuration", message=message)
+
+        # Create numbered list for selection
+        all_settings = []
+
+        # Add general settings with intuitive descriptions
+        general_settings = self.config.get_general_settings()
+        setting_descriptions = {
+            "normalize_unicode": "Decompose Unicode Characters (é→e + accent)",
+            "remove_combining_chars": "Remove Accent Marks (e + accent→e)",
+            "remove_non_ascii": "Remove All Non-ASCII",
+            "normalize_whitespace": "Clean Up Extra Spacing",
+        }
+
+        for setting, value in general_settings.items():
+            setting_name = setting_descriptions.get(setting, setting.replace("_", " ").title())
+            all_settings.append(("general", setting, setting_name, value))
+
+        # Add separator between general and category settings
+        all_settings.append(("separator", "", "", False))
+
+        # Add categories and their sub-settings
+        categories = self.config.get_categories()
+        for category in categories:
+            enabled = self.config.is_category_enabled(category)
+            category_name = category.replace("_", " ").title()
+            all_settings.append(("category", category, category_name, enabled))
+
+            # Add sub-settings if category is enabled
+            if enabled:
+                sub_settings = self.config.get_sub_settings(category)
+                for setting_key, display_name, current_value in sub_settings:
+                    all_settings.append(
+                        ("sub_setting", f"{category}_{setting_key}", display_name, current_value)
+                    )
+
+        # Build settings display with numbered list
+
+        # Add option 0 for Restore Defaults
+        settings_text = "⚪ 0. Restore Defaults\n\n"
+
+        # Track if we've shown the general settings title
+        general_title_shown = False
+        category_title_shown = False
+
+        def get_status_symbol(value: bool) -> str:
+            """Return the appropriate status symbol for a setting."""
+            return "🟢" if value else "🔴"
+
+        for i, (setting_type, setting_key, setting_name, current_value) in enumerate(all_settings, 1):
+            if setting_type == "separator":
+                settings_text += "\n"
+            elif setting_type in ["general", "category", "sub_setting"]:
+                # Show title for first occurrence of each type
+                if setting_type == "general" and not general_title_shown:
+                    settings_text += "GENERAL SETTINGS:\n"
+                    general_title_shown = True
+                elif setting_type == "category" and not category_title_shown:
+                    settings_text += "SPECIFIC REPLACEMENTS:\n"
+                    category_title_shown = True
+
+                # Add the setting line
+                settings_text += f"{get_status_symbol(current_value)} {i}. {setting_name}\n"
+
+        # Use rumps.Window for input
+        window = rumps.Window(
+            message=settings_text + '\nEnter numbers to toggle (e.g. "3 5 9"):',
+            title="Configuration",
+            ok="Toggle",
+            cancel="Close",
+            default_text="",
+        )
+
+        response = window.run()
+
+        if response.clicked == 1:  # Toggle clicked
+            try:
+                # Parse comma-separated numbers with proper sanitization
+                input_text = response.text.strip()
+                if not input_text:
+                    rumps.alert(title="Invalid Input", message="Please enter at least one number.")
+                    self._toggle_single_setting()
+                    return
+
+                # Check for single "0" input (Restore Defaults) - must be standalone
+                if input_text.strip() == "0":
+                    self._restore_defaults()
+                    return
+
+                # Split by multiple separators and clean each number
+                # Split by any non-digit character (allows any character as separator)
+                number_strings = re.split(r"[^\d]+", input_text)
+                selections = []
+
+                for num_str in number_strings:
+                    if not num_str:  # Skip empty strings
+                        continue
+                    try:
+                        num = int(num_str)
+                        if num == 0:
+                            # 0 can only be used standalone
+                            rumps.alert(
+                                title="Invalid Input",
+                                message="Option 0 (Restore Defaults) must be entered alone, "
+                                "not with other numbers.",
+                            )
+                            self._toggle_single_setting()
+                            return
+                        elif 1 <= num <= len(all_settings):
+                            selections.append(num)
+                        else:
+                            rumps.alert(
+                                title="Invalid Number",
+                                message=f"Number {num} is out of range (1-{len(all_settings)})",
+                            )
+                            self._toggle_single_setting()
+                            return
+                    except ValueError:
+                        rumps.alert(title="Invalid Input", message=f"'{num_str}' is not a valid number")
+                        self._toggle_single_setting()
+                        return
+
+                # Remove duplicates while preserving order
+                unique_selections = []
+                for num in selections:
+                    if num not in unique_selections:
+                        unique_selections.append(num)
+
+                if not unique_selections:
+                    rumps.alert(title="No Valid Selections", message="No valid settings were selected.")
+                    self._toggle_single_setting()
+                    return
+
+                # Toggle all selected settings
+                toggled_settings = []
+                for selection in unique_selections:
+                    setting_type, setting_key, setting_name, current_value = all_settings[selection - 1]
+
+                    # Toggle the setting
+                    if setting_type == "general":
+                        self.config.set_general_setting(setting_key, not current_value)
+                    elif setting_type == "sub_setting":
+                        category, setting = setting_key.split("_", 1)
+                        self.config.set_sub_setting(category, setting, not current_value)
+                        self.config.load_config()
+                    else:  # category
+                        self.config.set_category_enabled(setting_key, not current_value)
+
+                    new_status = "ON" if not current_value else "OFF"
+                    toggled_settings.append(f"{setting_name} ({new_status})")
+
+                # Show notification for all toggled settings
+                if len(toggled_settings) == 1:
+                    rumps.notification(
+                        title="Setting Updated",
+                        subtitle=toggled_settings[0],
+                        message="Configuration saved.",
+                    )
+                else:
+                    rumps.notification(
+                        title="Settings Updated",
+                        subtitle=f"{len(toggled_settings)} settings toggled",
+                        message="Configuration saved.",
+                    )
+
+                # Stay in the toggle menu by calling it again
+                self._toggle_single_setting()
+
+            except (ValueError, TypeError, OSError) as e:
+                rumps.alert(title="Error", message=f"An error occurred: {str(e)}")
+                self._toggle_single_setting()
+        elif response.clicked == 0:  # Close clicked
+            # Return to main menu (do nothing, just exit)
+            pass
+        # If window is closed (response.clicked == -1), return to main menu
+
+    def _restore_defaults(self) -> None:
+        """Restore all configuration settings to their default values."""
+        bring_dialog_to_front()
+        confirm = rumps.alert(
+            title="Restore Defaults",
+            message="Are you sure you want to restore all settings to their default values?",
+            ok="Yes, Restore",
+            cancel="Cancel",
+        )
+        if confirm == 1:
+            # Reset to defaults using the config manager method
+            self.config.reset_to_defaults()
+            rumps.notification(
+                title="LLM Output Scrub",
+                subtitle="Defaults Restored",
+                message="All settings have been reset to defaults.",
+            )
+            # Return to main configuration dialog
+            self._toggle_single_setting()
 
     @rumps.clicked("NLP Stats")  # type: ignore[misc]
     def show_nlp_stats(self, _: Any) -> None:
@@ -225,10 +407,18 @@ class LLMOutputScrub(rumps.App):
         while i < len(text):
             char = text[i]
 
-            # Special handling for EM dash if dashes category is enabled
-            if char == "—" and self.config.is_category_enabled("dashes"):
-                replacement = get_dash_replacement_nlp(text, i)
-                scrubbed_text += replacement
+            # Special handling for EM dash if em_dashes category is enabled
+            if char == "—" and self.config.is_em_dash_enabled():
+                if self.config.is_em_dash_contextual():
+                    replacement, new_position = get_dash_replacement_nlp(text, i)
+                    scrubbed_text += replacement
+                    i = new_position
+                    continue
+                else:
+                    # Use simple replacement from config
+                    scrubbed_text += self.config.config["character_replacements"]["em_dashes"][
+                        "replacements"
+                    ]["—"]
             elif char in replacements:
                 scrubbed_text += replacements[char]
             else:
@@ -236,7 +426,7 @@ class LLMOutputScrub(rumps.App):
 
             i += 1
 
-        # Handle other Unicode characters based on config
+        # Handle Unicode normalization and cleanup
         if self.config.config["general"]["normalize_unicode"]:
             scrubbed_text = unicodedata.normalize("NFKD", scrubbed_text)
 
@@ -246,6 +436,7 @@ class LLMOutputScrub(rumps.App):
         if self.config.config["general"]["remove_non_ascii"]:
             scrubbed_text = "".join(char if ord(char) < 128 else "" for char in scrubbed_text)
 
+        # Handle whitespace normalization (final formatting step)
         if self.config.config["general"].get("normalize_whitespace", False):
             # Normalize whitespace within each line, preserve empty lines, trim excessive empty lines
             lines = scrubbed_text.split("\n")

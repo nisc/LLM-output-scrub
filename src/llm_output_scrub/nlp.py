@@ -6,7 +6,7 @@ Uses linguistic features and POS tagging instead of hardcoded patterns.
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import spacy
 
@@ -191,6 +191,9 @@ class SpacyNLPProcessor:
         self._log_decision(result.context_type, result.confidence)
         if self.stats["total_dashes"] % 50 == 0:
             self._save_stats()
+        # Always normalize whitespace around comma replacements (", ") regardless of setting
+        if result.replacement.strip() == ",":
+            return ", "
         return result.replacement
 
     def _analyze_linguistic_context(
@@ -522,7 +525,23 @@ def get_nlp_processor() -> SpacyNLPProcessor:
     return _ProcessorSingleton.get_instance()
 
 
-def get_dash_replacement_nlp(text: str, position: int) -> str:
-    """Get EM dash replacement using spaCy-first NLP analysis."""
+def get_dash_replacement_nlp(text: str, position: int) -> Tuple[str, int]:
+    """
+    Get EM dash replacement using spaCy-first NLP analysis.
+    Handles all whitespace normalization/stripping for contextual replacements.
+    Returns:
+        Tuple[str, int]: (replacement_text, new_position)
+        - replacement_text: The text to append to output (whitespace handled)
+        - new_position: The position to continue processing from
+    """
     processor = get_nlp_processor()
-    return processor.get_dash_replacement(text, position)
+    replacement = processor.get_dash_replacement(text, position)
+
+    if replacement == ", ":
+        # Find end of whitespace after dash
+        end = position + 1
+        while end < len(text) and text[end].isspace():
+            end += 1
+        # Always return ', ' (comma + single space), never a space before the comma
+        return ", ", end
+    return replacement, position + 1

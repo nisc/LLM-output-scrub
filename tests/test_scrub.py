@@ -53,7 +53,8 @@ class TestScrubConfig(unittest.TestCase):
         # Check that all expected categories exist
         expected_categories = [
             "smart_quotes",
-            "dashes",
+            "em_dashes",
+            "en_dashes",
             "ellipsis",
             "angle_quotes",
             "trademarks",
@@ -66,12 +67,18 @@ class TestScrubConfig(unittest.TestCase):
         for category in expected_categories:
             self.assertIn(category, self.config.config["character_replacements"])
 
-    def test_dashes_category_exists(self) -> None:
-        """Test that dashes category exists and is enabled by default."""
-        self.assertIn("dashes", self.config.config["character_replacements"])
-        self.assertTrue(self.config.is_category_enabled("dashes"))
-        # EN dash uses simple replacement, EM dash uses context-aware logic
-        self.assertIn("–", self.config.config["character_replacements"]["dashes"]["replacements"])
+    def test_en_dashes_category_exists(self) -> None:
+        """Test that en_dashes category exists and is enabled by default."""
+        self.assertIn("en_dashes", self.config.config["character_replacements"])
+        self.assertTrue(self.config.is_category_enabled("en_dashes"))
+        # EN dash uses simple replacement
+        self.assertIn("–", self.config.config["character_replacements"]["en_dashes"]["replacements"])
+
+    def test_em_dashes_category_exists(self) -> None:
+        """Test that em_dashes category exists and is enabled by default."""
+        self.assertIn("em_dashes", self.config.config["character_replacements"])
+        self.assertTrue(self.config.is_category_enabled("em_dashes"))
+        self.assertTrue(self.config.is_em_dash_contextual())  # Should be contextual by default
 
     def test_get_all_replacements(self) -> None:
         """Test getting all enabled replacements."""
@@ -81,7 +88,9 @@ class TestScrubConfig(unittest.TestCase):
         self.assertIn("\u201d", replacements)  # Right double quote
         self.assertIn("–", replacements)  # EN dash
         self.assertIn("…", replacements)  # Ellipsis
-        # EM dashes use context-aware replacement, not simple config replacement
+        # EM dashes are in replacements when contextual mode is off, but handled specially when on
+        # This test checks the default state (contextual mode on), so EM dash should not be in simple
+        # replacements
         self.assertNotIn("—", replacements)  # EM dash
 
     def test_set_category_enabled(self) -> None:
@@ -99,7 +108,8 @@ class TestScrubConfig(unittest.TestCase):
         categories = self.config.get_categories()
         self.assertIsInstance(categories, list)
         self.assertIn("smart_quotes", categories)
-        self.assertIn("dashes", categories)
+        self.assertIn("en_dashes", categories)
+        self.assertIn("em_dashes", categories)
 
     def test_config_persistence(self) -> None:
         """Test that config changes are saved to file."""
@@ -125,7 +135,7 @@ class TestScrubConfig(unittest.TestCase):
 
         # Check that smart_quotes is disabled but other defaults remain
         self.assertFalse(config.is_category_enabled("smart_quotes"))
-        self.assertTrue(config.is_category_enabled("dashes"))
+        self.assertTrue(config.is_category_enabled("en_dashes"))
 
     def test_config_load_error_handling(self) -> None:
         """Test error handling when loading corrupted config files."""
@@ -174,7 +184,7 @@ class TestScrubConfig(unittest.TestCase):
         # Should merge correctly
         self.assertFalse(config.is_category_enabled("smart_quotes"))
         # Other categories should still have defaults
-        self.assertTrue(config.is_category_enabled("dashes"))
+        self.assertTrue(config.is_category_enabled("en_dashes"))
 
     def test_category_validation(self) -> None:
         """Test validation of category names and operations."""
@@ -264,12 +274,32 @@ class TestLLMOutputScrub(unittest.TestCase):
                 self.assertEqual(result, expected)
 
     def test_em_dash_disabled(self) -> None:
-        """Test that EM dashes are not replaced when dashes category is disabled."""
-        self.scrubber.config.set_category_enabled("dashes", False)
+        """Test that EM dashes are not replaced when em_dashes category is disabled."""
+        self.scrubber.config.set_em_dash_enabled(False)
 
         test_text = "The weather—it was terrible—ruined our picnic."
         result = self.scrubber.scrub_text(test_text)
         self.assertEqual(result, test_text)  # Should remain unchanged
+
+    def test_em_dash_dumb_replacement(self) -> None:
+        """Test that EM dashes use simple replacement when contextual mode is disabled."""
+        self.scrubber.config.set_em_dash_enabled(True)
+        self.scrubber.config.set_em_dash_contextual(False)
+
+        test_cases = [
+            (
+                "The weather—it was terrible—ruined our picnic.",
+                "The weather-it was terrible-ruined our picnic.",
+            ),
+            ("The cat—a fluffy Persian—was sleeping.", "The cat-a fluffy Persian-was sleeping."),
+            ("The range is 1—5.", "The range is 1-5."),
+            ("self—driving car", "self-driving car"),
+        ]
+
+        for input_text, expected in test_cases:
+            with self.subTest(input_text=input_text):
+                result = self.scrubber.scrub_text(input_text)
+                self.assertEqual(result, expected)
 
     def test_ellipsis_replacement(self) -> None:
         """Test ellipsis replacement."""
@@ -483,7 +513,7 @@ The end."""
 
         test_text = "Hello 世界"  # Contains Chinese characters
         result = self.scrubber.scrub_text(test_text)
-        self.assertEqual(result, "Hello")  # Chinese characters should be removed
+        self.assertEqual(result, "Hello ")  # Chinese characters should be removed, space preserved
 
     def test_remove_combining_chars(self) -> None:
         """Test removal of combining characters."""
@@ -557,8 +587,8 @@ The end."""
 
     def test_enhanced_em_dash_nlp_contexts(self) -> None:
         """Test the enhanced spaCy-first NLP dash replacement with realistic 100-500 character contexts."""
-        # Enable dashes category
-        self.scrubber.config.set_category_enabled("dashes", True)
+        # Enable em_dashes category
+        self.scrubber.config.set_em_dash_enabled(True)
 
         test_cases = [
             # 1. DEFAULT REPLACEMENT CONTEXTS (use simple hyphen)
@@ -791,8 +821,8 @@ The end."""
                 self.assertEqual(result, expected)
 
     def test_em_dash_never_preserved_when_enabled(self) -> None:
-        """Assert that EM dashes are never preserved in any context when dashes category is enabled."""
-        self.scrubber.config.set_category_enabled("dashes", True)
+        """Assert that EM dashes are never preserved in any context when em_dashes category is enabled."""
+        self.scrubber.config.set_em_dash_enabled(True)
         test_cases = [
             '"Hello"—John said',
             "The result—amazingly—was perfect",
@@ -810,7 +840,7 @@ The end."""
 
     def test_dialogue_context_preservation(self) -> None:
         """Test that dialogue contexts replace EM dashes (no longer preserve)."""
-        self.scrubber.config.set_category_enabled("dashes", True)
+        self.scrubber.config.set_em_dash_enabled(True)
 
         test_cases = [
             ('"Hello"—John said', '"Hello", John said'),
@@ -826,7 +856,7 @@ The end."""
 
     def test_emphasis_context_preservation(self) -> None:
         """Test that emphasis contexts replace EM dashes (no longer preserve)."""
-        self.scrubber.config.set_category_enabled("dashes", True)
+        self.scrubber.config.set_em_dash_enabled(True)
 
         test_cases = [
             ("The result—amazingly—was perfect", "The result, amazingly, was perfect"),
