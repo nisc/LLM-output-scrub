@@ -477,33 +477,46 @@ class LLMOutputScrub(rumps.App):
 
     def scrub_text(self, text: str) -> str:
         """Replace smart/typographic characters with plain ASCII equivalents."""
+        if not text:
+            return text
 
         # Get enabled replacements from config
         replacements = self.config.get_all_replacements()
 
-        scrubbed_text = ""
-        i = 0
-        while i < len(text):
-            char = text[i]
+        # Handle contextual EM dash mode first
+        if self.config.is_em_dash_enabled() and self.config.is_em_dash_contextual():
+            # Replace all EM dashes contextually in one pass
+            scrubbed_text = text
+            em_dash_positions = [i for i, char in enumerate(text) if char == "—"]
+            for position in reversed(em_dash_positions):
+                try:
+                    replacement, _ = get_dash_replacement_nlp(text, position)
+                    # Handle whitespace properly: ensure exactly one space after comma
+                    if replacement == ", ":
+                        # Find the next non-whitespace character
+                        next_char_pos = position + 1
+                        while next_char_pos < len(scrubbed_text) and scrubbed_text[next_char_pos].isspace():
+                            next_char_pos += 1
+                        # Replace the dash and any following whitespace with comma + single space
+                        scrubbed_text = scrubbed_text[:position] + ", " + scrubbed_text[next_char_pos:]
+                    else:
+                        scrubbed_text = scrubbed_text[:position] + replacement + scrubbed_text[position + 1 :]
+                except Exception:
+                    scrubbed_text = scrubbed_text[:position] + "-" + scrubbed_text[position + 1 :]
+        else:
+            scrubbed_text = text
 
-            # Special handling for EM dash if em_dashes category is enabled
-            if char == "—" and self.config.is_em_dash_enabled():
-                if self.config.is_em_dash_contextual():
-                    replacement, new_position = get_dash_replacement_nlp(text, i)
-                    scrubbed_text += replacement
-                    i = new_position
-                    continue
-                else:
-                    # Use simple replacement from config
-                    scrubbed_text += self.config.config["character_replacements"]["em_dashes"][
-                        "replacements"
-                    ]["—"]
+        # Now process all other replacements in a single pass
+        result = []
+        for char in scrubbed_text:
+            # Simple EM dash replacement if not contextual
+            if char == "—" and self.config.is_em_dash_enabled() and not self.config.is_em_dash_contextual():
+                result.append(self.config.config["character_replacements"]["em_dashes"]["replacements"]["—"])
             elif char in replacements:
-                scrubbed_text += replacements[char]
+                result.append(replacements[char])
             else:
-                scrubbed_text += char
-
-            i += 1
+                result.append(char)
+        scrubbed_text = "".join(result)
 
         # Handle Unicode normalization and cleanup
         if self.config.config["general"]["normalize_unicode"]:

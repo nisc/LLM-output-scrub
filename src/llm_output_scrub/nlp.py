@@ -188,9 +188,10 @@ class SpacyNLPProcessor:
             return parenthetical_result[0]
 
         # Final contextual analysis using the smaller context
-        return self._get_final_replacement_optimized(
+        final_result = self._get_final_replacement_optimized(
             context_doc, dash_pos_in_context, text, position, context_size
         )
+        return final_result
 
     def _find_sentence_containing_dash(self, doc: Any, position: int) -> Tuple[Any, int]:
         """Find the sentence containing the dash at the given position."""
@@ -285,27 +286,39 @@ class SpacyNLPProcessor:
 
     def _is_parenthetical_content_optimized(self, sent_doc: Any, between_text: str) -> bool:
         """Check if the text between dashes is parenthetical content using existing doc."""
-        # Find tokens in the sentence that correspond to the between_text
-        # This avoids creating a new spaCy doc for the between text
-        between_start = sent_doc.text.find(between_text)
+        # Strip whitespace for robust matching
+        between_text_stripped = between_text.strip()
+        between_start = sent_doc.text.find(between_text_stripped)
+
         if between_start == -1:
             # Fallback: create new doc only if we can't find the text in the sentence
-            return self._is_parenthetical_content(between_text)
+            return self._is_parenthetical_content(between_text_stripped)
 
-        between_end = between_start + len(between_text)
+        between_end = between_start + len(between_text_stripped)
+
+        # Get the sentence offset within the full document
+        sentence_offset = sent_doc[0].idx if len(sent_doc) > 0 else 0
+
+        # Adjust the between_start and between_end to be relative to the full document
+        adjusted_between_start = sentence_offset + between_start
+        adjusted_between_end = sentence_offset + between_end
+
         between_tokens = [
-            t for t in sent_doc if t.idx >= between_start and t.idx + len(t.text) <= between_end
+            t
+            for t in sent_doc
+            if t.idx >= adjusted_between_start and t.idx + len(t.text) <= adjusted_between_end
         ]
 
         # Filter out punctuation tokens
         non_punct_tokens = [t for t in between_tokens if not t.is_punct and t.text.strip()]
 
         # Parenthetical/emphasis: more than one token, or single adverb/adjective
-        return len(non_punct_tokens) > 1 or (
+        result = len(non_punct_tokens) > 1 or (
             len(non_punct_tokens) == 1
             and non_punct_tokens[0].pos_ in ["ADV", "ADJ"]
             and len(non_punct_tokens[0].text) > 2
         )
+        return result
 
     def _is_parenthetical_content(self, text: str) -> bool:
         """Check if the text between dashes is parenthetical content (fallback method)."""
@@ -313,11 +326,12 @@ class SpacyNLPProcessor:
         non_punct_tokens = [t for t in between_doc if not t.is_punct and t.text.strip()]
 
         # Parenthetical/emphasis: more than one token, or single adverb/adjective
-        return len(non_punct_tokens) > 1 or (
+        result = len(non_punct_tokens) > 1 or (
             len(non_punct_tokens) == 1
             and non_punct_tokens[0].pos_ in ["ADV", "ADJ"]
             and len(non_punct_tokens[0].text) > 2
         )
+        return result
 
     def _get_final_replacement_optimized(
         self, doc: Any, dash_pos_in_doc: int, full_text: str, original_position: int, context_size: int
@@ -328,6 +342,32 @@ class SpacyNLPProcessor:
 
         if dash_token is None:
             return "-"
+
+        # Robust fallback: if sentence contains >1 EM dash, treat as parenthetical
+        sent_text = doc.text
+        dash_indices = []
+        for i, c in enumerate(sent_text):
+            if c == "—":
+                dash_indices.append(i)
+
+        # If there are multiple dashes, any dash that has another dash before or after it is parenthetical
+        if len(dash_indices) > 1:
+            # Find the character position of this dash in the sentence text
+            if dash_token and dash_token.text == "—" and dash_token_idx is not None:
+                # Get the character position of this token in the sentence
+                char_pos_in_sent = dash_token.idx
+
+                # Check if this dash has another dash before or after it
+                has_other_dash_before = any(idx < char_pos_in_sent for idx in dash_indices)
+                has_other_dash_after = any(idx > char_pos_in_sent for idx in dash_indices)
+
+                if has_other_dash_before or has_other_dash_after:
+                    self._log_decision(
+                        "parenthetical_fallback",
+                        0.70,
+                        context_size,
+                    )
+                    return ", "
 
         # Dialogue attribution: quote before dash and proper noun after dash
         if self._is_dialogue_context(doc, dash_pos_in_doc, full_text, original_position):
@@ -349,7 +389,7 @@ class SpacyNLPProcessor:
                 and len(after_token.text) <= 3
             ):
                 self._log_decision("emphasis", 0.75, context_size)
-                return "—"
+                return ", "
 
         # Default to hyphen for unknown cases
         self._log_decision("unknown", 0.50, context_size)
