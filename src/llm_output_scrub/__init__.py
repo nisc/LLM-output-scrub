@@ -2,7 +2,7 @@
 LLM Output Scrub - macOS app that replaces smart/typographic characters with plain ASCII.
 """
 
-__version__ = "0.1.0-alpha"
+__version__ = "1.0.0"  # dummy for consistency (not really a 1.0.0)
 __author__ = "nisc"
 __description__ = "A simple macOS app that replaces smart/typographic characters with plain ASCII"
 

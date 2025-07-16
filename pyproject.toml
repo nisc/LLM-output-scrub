@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "LLM-output-scrub"
-version = "0.2.0-alpha"
+version = "1.0.0"  # dummy for consistency (not really a 1.0.0)
 description = "A macOS menu bar app that converts typographic characters to ASCII using spaCy NLP for context-aware processing"
 readme = "README.md"
 license = {text = "MIT"}

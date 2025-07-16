@@ -65,8 +65,8 @@ OPTIONS = {
         "CFBundleDisplayName": "LLM Output Scrub",
         "CFBundleGetInfoString": ("Converts typographic characters to ASCII using spaCy NLP"),
         "CFBundleIdentifier": "com.llmoutputscrub.app",
-        "CFBundleVersion": "0.2.0",
-        "CFBundleShortVersionString": "0.2.0",
+        "CFBundleVersion": "1.0.0",  # dummy for consistency (not really a 1.0.0)
+        "CFBundleShortVersionString": "1.0.0",  # dummy for consistency (not really a 1.0.0)
         "NSHumanReadableCopyright": "Copyright © 2025 MIT License",
         "LSUIElement": True,  # Makes it a background app (no dock icon)
     },
